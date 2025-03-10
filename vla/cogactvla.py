@@ -152,7 +152,6 @@ class CogACT(nn.Module):
         actions_history_repeated = actions_history.repeat(repeated_diffusion_steps, 1, 1)
         cognition_features_repeated = cognition_features.repeat(repeated_diffusion_steps, 1, 1) # [repeated_diffusion_steps*B, 1, D]
 
-        # Action model forward and compute loss
         loss = self.action_model.loss(actions_repeated, cognition_features_repeated)
         return loss, output
 

@@ -35,8 +35,9 @@ from prismatic.vla.datasets.rlds.utils.data_utils import save_dataset_statistics
 
 from training import VLAMetrics, get_train_strategy
 from conf import VLAConfig, VLARegistry
-from vla import load, load_vla
+from vla import load, load_vla, load_vgmvla
 from vla import CogACT
+# from vgm_dataset import get_vla_dataset_and_collator
 
 # Sane Defaults
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -161,6 +162,7 @@ def train(cfg: TrainConfig) -> None:
         overwatch.info("Loading VLA Checkpoint")
         if cfg.use_ema:
             overwatch.info("Loading EMA of Diffusion")
+
         vla = load_vla(cfg.pretrained_checkpoint, 
                         hf_token=hf_token, 
                         load_for_training=True, 

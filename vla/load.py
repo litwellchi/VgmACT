@@ -18,7 +18,7 @@ from prismatic.models.registry import GLOBAL_REGISTRY, MODEL_REGISTRY
 from prismatic.models.vlms import PrismaticVLM
 from prismatic.overwatch import initialize_overwatch
 
-from vla import CogACT
+from vla import CogACT,VgmACT,VGM
 
 # Initialize Overwatch =>> Wraps `logging.Logger`
 overwatch = initialize_overwatch(__name__)
@@ -210,6 +210,68 @@ def load_vla(
         vision_backbone,
         llm_backbone,
         arch_specifier=model_cfg.arch_specifier,
+        freeze_weights=not load_for_training,
+        norm_stats=norm_stats,
+        **kwargs,
+    )
+
+    return vla
+
+
+
+
+
+def load_vgmvla(    
+    model_id_or_path: Union[str, Path],
+    hf_token: Optional[str] = None,
+    cache_dir: Optional[Union[str, Path]] = None,
+    load_for_training: bool = False,
+    model_type: str = "pretrained",
+    **kwargs,):
+
+    #   checkpoint `.pt` file, rather than the top-level run directory!
+    if os.path.isfile(model_id_or_path):
+        overwatch.info(f"Loading from local checkpoint path `{(checkpoint_pt := Path(model_id_or_path))}`")
+
+        # [Validate] Checkpoint Path should look like `.../<RUN_ID>/checkpoints/<CHECKPOINT_PATH>.pt`
+        # assert (checkpoint_pt.suffix == ".pt") and (checkpoint_pt.parent.name == "checkpoints"), "Invalid checkpoint!"
+        run_dir = checkpoint_pt.parents[1]
+
+        # Get paths for `config.json`, `dataset_statistics.json` and pretrained checkpoint
+        config_json = run_dir / "configs/model.yaml"
+        if not config_json.exists():
+            config_json = checkpoint_pt.parents[2] / "configs/model.yaml"
+        dataset_statistics_json = Path("/aifs4su/mmcode/worldm/videoact/VgmACT/dataset_statistics.json") #TODO
+        assert config_json.exists(), f"Missing `model.yaml` for `{run_dir = }`"
+        assert dataset_statistics_json.exists(), f"Missing `dataset_statistics.json` for `{run_dir = }`"
+
+    # Otherwise =>> try looking for a match on `model_id_or_path` on the HF Hub (`model_id_or_path`)
+    else:
+        assert FileExistsError
+    # Load VLA Config (and corresponding base VLM `ModelConfig`) from `config.json`
+
+    # Load Dataset Statistics for Action Denormalization
+    with open(dataset_statistics_json, "r") as f:
+        norm_stats = json.load(f)
+
+    # = Load Individual Components necessary for Instantiating a VLA (via base VLM components) =
+    #   =>> Print Minimal Config
+    overwatch.info(
+        f"Found Config =>> Loading & Freezing with:\n"
+        f"             Checkpoint Path =>> [underline]`{checkpoint_pt}`[/]"
+    )
+
+
+    # Load VLM using `from_pretrained` (clobbers HF syntax... eventually should reconcile)
+    overwatch.info(f"Loading Video Generation Backbone from Checkpoint")
+    vgm = VGM(config_json,
+              model_id_or_path)
+
+    # Load VLM using `from_pretrained` (clobbers HF syntax... eventually should reconcile)
+    overwatch.info(f"Loading Video Generation Action Model from Checkpoint")
+
+    vla = VgmACT.from_pretrained(
+        vgm,
         freeze_weights=not load_for_training,
         norm_stats=norm_stats,
         **kwargs,
