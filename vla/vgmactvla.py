@@ -62,7 +62,7 @@ class VGM(nn.Module):
         self.ckpt_path = ckpt_path
         self.proj_dim = proj_dim
         self.fake_ddpm_step = fake_ddpm_step
-        self.default_image_resolution=(512,512)
+        self.default_image_resolution=(320,512)
         perframe_ae = True
 
         config = OmegaConf.load(config_yaml)
@@ -83,8 +83,26 @@ class VGM(nn.Module):
         # print("checkpoint", self.ckpt_path)
         assert os.path.exists(self.ckpt_path), "Error: checkpoint Not Found!"
         self.vgm = load_model_checkpoint(vgm, ckpt_path)
-
         self.init_projection(proj_dim)
+        self.all_module_keys=['projection']
+        for module_keys, _ in self.vgm.named_children():
+            self.all_module_keys.append("vgm." + module_keys)
+
+        # 确保 logit_scale 是一个 1D 张量
+        if isinstance(vgm.cond_stage_model.model.logit_scale, torch.Tensor):
+            vgm.cond_stage_model.model.logit_scale = nn.Parameter(
+                vgm.cond_stage_model.model.logit_scale.view(1)
+            )
+        # 确保 logit_scale 是一个 1D 张量
+        if isinstance(vgm.embedder.model.logit_scale, torch.Tensor):
+            vgm.embedder.model.logit_scale = nn.Parameter(
+                vgm.embedder.model.logit_scale.view(1)
+            )
+
+        self.vgm.embedder.eval()
+        self.vgm.image_proj_model.eval()
+        self.set_trainable_param()
+        self.vgm.eval()
 
     def init_projection(self, proj_dim):
         h,w = self.model_config['params']['image_size']
@@ -98,10 +116,36 @@ class VGM(nn.Module):
             drop=0)
 
 
-    def init_lora(self):
-        pass
+    def set_trainable_param(self):
+        # 冻结所有参数
+        for param in self.vgm.parameters():
+            param.requires_grad = False
 
-    def get_image_transform(self,video_size=(512,512), video_frames=16, interp=False):
+        # 仅解冻 `vgm.model` 和 `projection`
+        for param in self.vgm.model.parameters():
+            param.requires_grad = True
+
+        for param in self.projection.parameters():
+            param.requires_grad = True
+        
+        # self._init_unet_lora(use_lora=True)
+
+    def _init_unet_lora(self, use_lora):
+        import peft
+        if use_lora:
+            lora_config = peft.LoraConfig(
+                r=4,
+                lora_alpha=1,
+                # only diffusion_model has these modules
+                target_modules=["to_k", "to_v", "to_q"],
+                lora_dropout=0.0,
+            )
+            self.vgm.model.diffusion_model = peft.get_peft_model(
+                self.vgm.model.diffusion_model, lora_config)
+            self.vgm.model.diffusion_model.print_trainable_parameters()
+
+
+    def get_image_transform(self,video_size=(320,512), video_frames=16, interp=False):
         transform = transforms.Compose([
             transforms.Resize(min(video_size)),
             transforms.CenterCrop(video_size),
@@ -113,6 +157,7 @@ class VGM(nn.Module):
         pass
 
     def create_time_varying_mask(self, shape, rate=10, device='cuda'):
+        # TODO mask 还没加上，不完全是first frame condition
         b, c, t, h, w = shape
         time_mask = torch.linspace(0, 1, t, device=device)  
         time_mask[1:]=0
@@ -120,7 +165,7 @@ class VGM(nn.Module):
         time_mask = time_mask.view(1, 1, t, 1, 1).expand(b, c, t, h, w)
         return time_mask
 
-    def one_ddim_step_forward(self, prompts, images, noise_shape, n_samples=1, ddim_steps=50, ddim_eta=1., \
+    def one_ddim_step_forward(self, prompts, images, n_samples=1, ddim_steps=50, ddim_eta=1., \
                         unconditional_guidance_scale=1.0, cfg_img=None, fs=None, text_input=False, multiple_cond_cfg=False, loop=False, interp=False, timestep_spacing='uniform', guidance_rescale=0.0, **kwargs):
         """
         model forward一次 ，取出一次forward的feature
@@ -130,17 +175,20 @@ class VGM(nn.Module):
             cognition_features: [B, T, D]
 
         """
-
+        device = self.vgm.model.diffusion_model.out[2].weight.device
+        images = torch.stack(images, dim=0).to(device)
+        noise_shape = images.shape
         batch_size = noise_shape[0]
-        fs = torch.tensor([fs] * batch_size, dtype=torch.long, device=self.vgm.device)
+        # fs = torch.tensor([fs] * batch_size, dtype=torch.long, device=device)
 
         if not text_input:
             prompts = [""]*batch_size
         videos= images.unsqueeze(2)#bcthw #TODO
+        videos = repeat(videos, 'b c t h w -> b c (repeat t) h w', repeat=16)
         img = videos[:,:,0] #bchw
         img_emb = self.vgm.embedder(img) ## blc
-        img_emb = self.vgm.image_proj_model(img_emb)
-        cond_emb = self.vgm.get_learned_conditioning(prompts)
+        img_emb = self.vgm.image_proj_model(img_emb).detach().clone()
+        cond_emb = self.vgm.get_learned_conditioning(prompts).detach().clone()
         cond = {"c_crossattn": [torch.cat([cond_emb,img_emb], dim=1)]}
         if self.vgm.model.conditioning_key == 'hybrid':
             b, c, t, h, w = videos.shape
@@ -152,7 +200,7 @@ class VGM(nn.Module):
                 img_cat_cond[:,:,0,:,:] = z[:,:,0,:,:]
                 img_cat_cond[:,:,-1,:,:] = z[:,:,-1,:,:]
             else:
-                img_cat_cond = z[:,:,:1,:,:]
+                img_cat_cond = z[:,:,:1,:,:].detach().clone()
                 img_cat_cond = repeat(img_cat_cond, 'b c t h w -> b c (repeat t) h w', repeat=z.shape[2])
             cond["c_concat"] = [img_cat_cond] # b c 1 h w
         
@@ -180,23 +228,26 @@ class VGM(nn.Module):
             kwargs.update({"unconditional_conditioning_img_nonetext": None})
 
         
-        x_start = z
+        
+        x_start = z.detach().clone()
         noise = torch.randn_like(x_start)
         fix_video_timesteps=True
         if fix_video_timesteps==True:
-            t_vid = torch.randint(self.fake_ddpm_step, self.fake_ddpm_step+1,(x_start.shape[0],), device=self.vgm.device).long()
-        x_noisy = self.vgm.q_sample(x_start=x_start, t=t_vid, noise=noise)
+            t_vid = torch.randint(self.fake_ddpm_step, self.fake_ddpm_step+1,(x_start.shape[0],), device=device).long()
         
-        # cond_mask = self.create_time_varying_mask(z.shape)
-        # img_orig = self.model.q_sample(x_start, t_vid)  # TODO: deterministic forward pass? <ddim inversion>
-        # x_start = img_orig * cond_mask + (1. - cond_mask) * x_start # keep original & modify use img
+
+        # x_noisy = self.vgm.q_sample(x_start=x_start, t=t_vid, noise=noise)
+        cond_mask = self.create_time_varying_mask(z.shape)
+        if cond_mask is not None:
+            x_noisy = self.vgm.q_sample(x_start=x_start, t=t_vid, noise=noise)
+            x_noisy = x_start * cond_mask + (1. - cond_mask) * x_noisy
         
-        video_samples = self.vgm.apply_model(x_noisy, t_vid, c, **kwargs) # b c t h w
+        video_samples = self.vgm.apply_model(x_noisy, t_vid, cond, **kwargs) # b c t h w
 
         video_features = rearrange(video_samples, 'b c t h w -> b t (c h w)')
-        cognition_features = self.projection(video_samples) # B T D
+        cognition_features = self.projection(video_features) # B T D
 
-        return cognition_features[:,-1:,:] #TODO 先跑通goal condition
+        return cognition_features #TODO 先跑通goal condition
 
 
 class VgmACT(nn.Module):
@@ -230,8 +281,10 @@ class VgmACT(nn.Module):
         else:
             self.all_module_keys = ['action_model']
 
-        # for module_keys in self.vgm.all_module_keys:
-        #     self.all_module_keys.append("vgm." + module_keys)
+        for module_keys in self.vgm.all_module_keys:
+            # [name for name, _ in self.vlm.vgm.named_children()]
+            # [name for name, _ in self.vlm.vgm.vgm.named_children()]
+            self.all_module_keys.append("vgm." + module_keys)
 
         # Diffusion head is always trainable
         self._trainable_module_keys = ['action_model']
@@ -265,11 +318,18 @@ class VgmACT(nn.Module):
         return_dict: Optional[bool] = None,
         repeated_diffusion_steps: int = 4,
         action_masks = None,
-    ) -> Tuple:
+        lang = None,
+        ) -> Tuple:
         """Run a forward pass through the VLM, returning a CausalLMOutputWithPast instance (contains loss)."""
 
         # # extract the last hidden state and the learnable EOS token feature
-        cognition_features = self.vgm.one_ddim_step_forward() # B, 1, D
+        num_params = sum(p.numel() for p in self.vgm.parameters())
+        num_trainable_params = sum(p.numel() for p in self.vgm.parameters() if p.requires_grad)
+        overwatch.info(
+            f"# Parameters after re-set (in millions): {num_params / 10**6:.3f} Total, {num_trainable_params / 10**6:.3f} Trainable"
+        )
+
+        cognition_features = self.vgm.one_ddim_step_forward(prompts=lang,images=pixel_values) # B, 1, D
 
         actions_history = actions[:,0:self.past_action_window_size,:]
         actions_future = actions[:, -(self.future_action_window_size+1):, :]
@@ -284,24 +344,32 @@ class VgmACT(nn.Module):
         return loss,  cognition_features
 
     def get_fsdp_wrapping_policy(self) -> Callable:
-        """Return an FSDP _or_policy over the policies returned by each individual backbone (and our VLM policy)."""
-        vision_fsdp_wrapping_policy = self.vlm.vision_backbone.get_fsdp_wrapping_policy()
-        llm_fsdp_wrapping_policy = self.vlm.llm_backbone.get_fsdp_wrapping_policy()
+        """Return an FSDP wrapping policy that applies to `vgm.model`, `vgm.projection`, and specific prismatic modules."""
 
-        # Get Prismatic Wrapping Policy =>> just a module wrapping policy around `self.projector` and DiT
+        # 1️⃣ 获取 vgm.model 的 FSDP wrapping policy
+        vgm_fsdp_wrapping_policy = partial(
+            _module_wrap_policy,
+            module_classes={type(self.vgm.vgm.model)},  # 确保正确获取类型
+        )
+
+        # 2️⃣ 定义 `projection` 的 wrapping policy
+        projection_fsdp_wrapping_policy = partial(
+            _module_wrap_policy,
+            module_classes={type(self.vgm.projection)},  # 确保正确获取类型
+        )
+
+        # 3️⃣ 定义 `prismatic` 相关模块的 wrapping policy
         prismatic_fsdp_wrapping_policy = partial(
             _module_wrap_policy,
             module_classes={LinearProjector, MLPProjector, FusedMLPProjector, DiT},
         )
 
-        # Return union (_or_) over constituent policies
-        #   => Note: there is *not* a fall-through policy; any module that isn't covered by the above constituents will
-        #            automatically be folded into the root VLM FSDP instance.
+        # 4️⃣ 合并所有 Policy，使得 FSDP 仅包裹 `vgm.model`、`projection` 和 `prismatic` 相关模块
         return partial(
             _or_policy,
             policies=[
-                vision_fsdp_wrapping_policy,
-                llm_fsdp_wrapping_policy,
+                vgm_fsdp_wrapping_policy,
+                projection_fsdp_wrapping_policy,
                 prismatic_fsdp_wrapping_policy,
             ],
         )
@@ -691,5 +759,7 @@ if __name__ == "__main__":
     config_yaml = "/aifs4su/mmcode/worldm/RoboCrafter/save_checkpoints/calvin_training_512_v1.0_lr05/configs/model.yaml"
     ckpt_path = "/aifs4su/mmcode/worldm/RoboCrafter/save_checkpoints/ww_training_512_v1.0_rt1/checkpoints/epoch=37-step=80000.ckpt"
     vgm = VGM(config_yaml=config_yaml,
-              ckpt_path=ckpt_path)
-    vgm.one_ddim_step_forward(None, None, None)
+              ckpt_path=ckpt_path).cuda()
+    image = [torch.zeros((3,320,512))*4]
+    lang=['a','a','a','a']
+    vgm.one_ddim_step_forward(lang, image)

@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cogact"
+name = "vgmact"
 authors = [
     {name = "Qixiu Li", email="liqx23@mails.tsinghua.edu.cn"},
     {name = "Yaobo Liang", email="yalia@microsoft.com"},
@@ -75,7 +75,7 @@ where = ["."]
 exclude = ["cache"]
 
 [tool.setuptools.package-data]
-"cogact" = ["py.typed"]
+"vgmact" = ["py.typed"]
 
 [tool.black]
 line-length = 121

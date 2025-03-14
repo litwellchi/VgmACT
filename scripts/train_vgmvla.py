@@ -35,7 +35,7 @@ from vgm_dataset import get_vla_dataset_and_collator
 from prismatic.vla.datasets.rlds.utils.data_utils import save_dataset_statistics
 from prismatic.models.backbones.llm.prompting import PurePromptBuilder
 
-from training import VLAMetrics, get_train_strategy
+from training import VLAMetrics, get_train_strategy, get_vgm_train_strategy
 from conf import VLAConfig, VLARegistry
 from vla import load, load_vla, load_vgmvla
 from vla import CogACT
@@ -242,8 +242,8 @@ def train(cfg: TrainConfig) -> None:
         image_transform=vla.vgm.get_image_transform(), #TODO
         tokenizer=None, #TODO
         prompt_builder_fn=None, #TODO
-        default_image_resolution=vla.vgm.default_image_resolution, #TODO
-        shuffle_buffer_size=cfg.vla.shuffle_buffer_size,
+        default_image_resolution=(3,224,224), #TODO
+        shuffle_buffer_size=250000,
         image_aug=cfg.image_aug,
         load_all_data_for_training=cfg.load_all_data_for_training,
         future_action_window_size=cfg.future_action_window_size,
@@ -257,7 +257,7 @@ def train(cfg: TrainConfig) -> None:
     dist.barrier()
     # Create Train Strategy
     overwatch.info(f"Initializing Train Strategy `{cfg.train_strategy}`")
-    train_strategy = get_train_strategy(
+    train_strategy = get_vgm_train_strategy(
         train_strategy=cfg.train_strategy,
         vlm=vla,
         device_id=device_id,

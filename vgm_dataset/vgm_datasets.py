@@ -38,6 +38,19 @@ from prismatic.vla.datasets.rlds.utils.data_utils import NormalizationType
 # HuggingFace Default / LLaMa-2 IGNORE_INDEX (for labels)
 IGNORE_INDEX = -100
 
+    # vla_dataset, _, collator = get_vla_dataset_and_collator(
+    #     cfg.data_root_dir,
+    #     cfg.vla.data_mix,
+    #     image_transform=vla.vgm.get_image_transform(), #TODO
+    #     tokenizer=None, #TODO
+    #     prompt_builder_fn=None, #TODO
+    #     default_image_resolution=vla.vgm.default_image_resolution, #TODO
+    #     shuffle_buffer_size=cfg.vla.shuffle_buffer_size,
+    #     image_aug=cfg.image_aug,
+    #     load_all_data_for_training=cfg.load_all_data_for_training,
+    #     future_action_window_size=cfg.future_action_window_size,
+    #     past_action_window_size=cfg.past_action_window_size,
+    # )
 
 def get_vla_dataset_and_collator(
     data_root_dir: Path,
@@ -108,31 +121,32 @@ class RLDSBatchTransform:
         lang = rlds_batch["task"]["language_instruction"].decode().lower()
 
         # Construct Chat-based Prompt
-        prompt_builder = self.prompt_builder_fn("openvla")
+        # prompt_builder = self.prompt_builder_fn("openvla")
 
-        # If action tokenizer is not used, we don't add the action to the chat answer
-        if self.action_tokenizer is None:
-            conversation = [
-                {"from": "human", "value": f"What action should the robot take to {lang}?"},
-                {"from": "gpt", "value": ""},
-            ]
-        else:
-            # Construct Chat-based Prompt =>> Input is default query + language instruction, output are the action tokens
-            conversation = [
-                {"from": "human", "value": f"What action should the robot take to {lang}?"},
-                {"from": "gpt", "value": self.action_tokenizer(action)},
-            ]
+        # # If action tokenizer is not used, we don't add the action to the chat answer
+        # if self.action_tokenizer is None:
+        #     conversation = [
+        #         {"from": "human", "value": f"What action should the robot take to {lang}?"},
+        #         {"from": "gpt", "value": ""},
+        #     ]
+        # else:
+        #     # Construct Chat-based Prompt =>> Input is default query + language instruction, output are the action tokens
+        #     conversation = [
+        #         {"from": "human", "value": f"What action should the robot take to {lang}?"},
+        #         {"from": "gpt", "value": self.action_tokenizer(action)},
+        #     ]
 
-        for turn in conversation:
-            prompt_builder.add_turn(turn["from"], turn["value"])
+        # for turn in conversation:
+        #     prompt_builder.add_turn(turn["from"], turn["value"])
 
-        # Tokenize (w/ `base_tokenizer`)
-        input_ids = self.base_tokenizer(prompt_builder.get_prompt(), add_special_tokens=True).input_ids
-        labels = list(input_ids)
+        # # Tokenize (w/ `base_tokenizer`)
+        # input_ids = self.base_tokenizer(prompt_builder.get_prompt(), add_special_tokens=True).input_ids
+        # labels = list(input_ids)
 
         # Tensorize =>> Run Image Transform to get `pixel_values` =>> Return
         #   =>> IMPORTANT :: IF WE'RE USING HF LLM.forward(..., labels=labels), SHIFTING HAPPENS _INSIDE_ MODEL!
-        input_ids, labels = torch.tensor(input_ids), torch.tensor(labels)
+        input_ids, labels = None, None
+        # input_ids, labels = torch.tensor(input_ids), torch.tensor(labels)
         pixel_values = self.image_transform(img)
 
         # Add future actions to batch
@@ -142,14 +156,14 @@ class RLDSBatchTransform:
             if "action_mask" in rlds_batch:
                 action_mask = torch.tensor(rlds_batch["action_mask"], dtype=torch.bool)
 
-        if self.action_tokenizer is None:
-            labels[: -1] = IGNORE_INDEX
-        else:
-            # [CRITICAL] We do not want to take the loss for anything but the predicted action tokens!
-            labels[: -(len(action) + 1)] = IGNORE_INDEX
+        # if self.action_tokenizer is None:
+            # labels[: -1] = IGNORE_INDEX
+        # else:
+        #     # [CRITICAL] We do not want to take the loss for anything but the predicted action tokens!
+        #     labels[: -(len(action) + 1)] = IGNORE_INDEX
 
-        if not self.predict_stop_token:
-            labels[-1] = IGNORE_INDEX
+        # if not self.predict_stop_token:
+        #     labels[-1] = IGNORE_INDEX
 
         return dict(pixel_values=pixel_values, input_ids=input_ids, labels=labels, dataset_name=dataset_name, actions=action, action_masks=action_mask, lang=lang)
 

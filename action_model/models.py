@@ -192,9 +192,9 @@ class DiT(nn.Module):
         scale = hidden_size ** -0.5
 
         # Learnable positional embeddings
-        # +2, one for the conditional token, and one for the current action prediction
+        # +17, 16 for the conditional token, and one for the current action prediction
         self.positional_embedding = nn.Parameter(
-                scale * torch.randn(future_action_window_size + past_action_window_size + 2, hidden_size))
+                scale * torch.randn(future_action_window_size + past_action_window_size + 17, hidden_size))
 
         self.blocks = nn.ModuleList([
             DiTBlock(hidden_size, num_heads, mlp_ratio=mlp_ratio) for _ in range(depth)
@@ -233,22 +233,41 @@ class DiT(nn.Module):
 
     def forward(self, x, t, z):
         """
-        Forward pass of DiT.
+        Forward pass of DiT. In video prediction model
         history: (N, H, D) tensor of action history # not used now
         x: (N, T, D) tensor of predicting action inputs
         t: (N,) tensor of diffusion timesteps
         z: (N, 1, D) tensor of conditions
         """
+        pred_token_len = z.shape[1]
         x = self.x_embedder(x)                              # (N, T, D)
         t = self.t_embedder(t)                              # (N, D)
-        z = self.z_embedder(z, self.training)               # (N, 1, D)
-        c = t.unsqueeze(1) + z                              # (N, 1, D)
-        x = torch.cat((c, x), dim=1)                        # (N, T+1, D)
-        x = x + self.positional_embedding                   # (N, T+1, D)
+        z = self.z_embedder(z, self.training)               # (N, T, D)
+        c = t.unsqueeze(1).repeat(1,pred_token_len,1) + z       # (N, T, D)
+        x = torch.cat((c, x), dim=1)                        # (N, T+T, D)
+        x = x + self.positional_embedding                   # (N, T+T, D)
         for block in self.blocks:
-            x = block(x)                                    # (N, T+1, D)
-        x = self.final_layer(x)                             # (N, T+1, out_channels)
-        return x[:, 1:, :]     # (N, T, C)
+            x = block(x)                                    # (N, T+T, D)
+        x = self.final_layer(x)                             # (N, T+T, out_channels)
+        return x[:, pred_token_len:, :]     # (N, T, C)
+    # def forward(self, x, t, z):
+    #     """
+    #     Forward pass of DiT.
+    #     history: (N, H, D) tensor of action history # not used now
+    #     x: (N, T, D) tensor of predicting action inputs
+    #     t: (N,) tensor of diffusion timesteps
+    #     z: (N, 1, D) tensor of conditions
+    #     """
+    #     x = self.x_embedder(x)                              # (N, T, D)
+    #     t = self.t_embedder(t)                              # (N, D)
+    #     z = self.z_embedder(z, self.training)               # (N, 1, D)
+    #     c = t.unsqueeze(1) + z                              # (N, 1, D)
+    #     x = torch.cat((c, x), dim=1)                        # (N, T+1, D)
+    #     x = x + self.positional_embedding                   # (N, T+1, D)
+    #     for block in self.blocks:
+    #         x = block(x)                                    # (N, T+1, D)
+    #     x = self.final_layer(x)                             # (N, T+1, out_channels)
+    #     return x[:, 1:, :]     # (N, T, C)
 
     def forward_with_cfg(self, x, t, z, cfg_scale):
         """

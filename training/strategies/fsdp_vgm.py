@@ -33,18 +33,18 @@ from transformers.optimization import get_constant_schedule, get_cosine_schedule
 from prismatic.models.vlms import PrismaticVLM
 from prismatic.overwatch import initialize_overwatch
 
-from vla import CogACT
-from training.strategies.base_strategy_cogact import TrainingStrategy
+from vla import CogACT,VgmACT
+# from training.strategies.base_strategy_cogact import TrainingStrategy
 from training.strategies.base_strategy_vgmact import VgmACTTrainingStrategy
 
 # Initialize Overwatch =>> Wraps `logging.Logger`
 overwatch = initialize_overwatch(__name__)
 
 
-class FSDPStrategy(TrainingStrategy):
+class VgmFSDPStrategy(VgmACTTrainingStrategy):
     def __init__(
         self,
-        vlm: Union[PrismaticVLM, CogACT],
+        vlm: Union[PrismaticVLM, CogACT, VgmACT],
         device_id: int,
         stage: str,
         epochs: int,
@@ -139,6 +139,7 @@ class FSDPStrategy(TrainingStrategy):
                 # Save Checkpoint & Copy Latest to `latest-checkpoint.pt`
                 torch.save({"model": model_state_dicts}, checkpoint_path)
             dist.barrier()
+            print("Optimizer state dict keys:", self.optimizer.state_dict().keys())
             optim_state_dict = FSDP.optim_state_dict(self.vlm, self.optimizer)
             if overwatch.is_rank_zero():
                 optimizer_path = self._get_optimizer_path(checkpoint_path)
@@ -186,10 +187,10 @@ class FSDPStrategy(TrainingStrategy):
                 param_dtype=torch.bfloat16, reduce_dtype=reduce_buffer_dtype, buffer_dtype=reduce_buffer_dtype
             )
 
-            # When running FSDP with a frozen vision backbone --> move to half precision!
-            if self.stage not in {"full-finetune", "vla-full-train", "vla-sandwich-train"}:
-                overwatch.info("Casting Vision Backbone to *Half Precision* via `.to(dtype=...)`")
-                self.vlm.vision_backbone.to(dtype=self.vlm.vision_backbone.half_precision_dtype)
+            # # When running FSDP with a frozen vision backbone --> move to half precision!
+            # if self.stage not in {"full-finetune", "vla-full-train", "vla-sandwich-train"}:
+            #     overwatch.info("Casting Vision Backbone to *Half Precision* via `.to(dtype=...)`")
+            #     self.vlm.vgm.to(dtype=torch.half)
 
         else:
             # If we're not using mixed precision, everything is in default full precision!
@@ -207,6 +208,7 @@ class FSDPStrategy(TrainingStrategy):
             limit_all_gathers=True,
             use_orig_params=True,
         )
+
         # Gradient Checkpoint Setup
         if self.enable_gradient_checkpointing:
             # For Gradient Checkpointing under FSDP --> we make the same assumption as in the DDP/other strategies; the
@@ -217,7 +219,7 @@ class FSDPStrategy(TrainingStrategy):
             non_reentrant_wrapper = partial(checkpoint_wrapper, checkpoint_impl=CheckpointImpl.NO_REENTRANT)
 
             def check_fn(submodule: nn.Module) -> bool:
-                return isinstance(submodule, self.llm_transformer_layer_cls)
+                return isinstance(submodule, type(nn.modules))
 
             # Note that the terms "activation checkpointing" and "gradient checkpointing" are synonymous!
             apply_activation_checkpointing(self.vlm, checkpoint_wrapper_fn=non_reentrant_wrapper, check_fn=check_fn)
