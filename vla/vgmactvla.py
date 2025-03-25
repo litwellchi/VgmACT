@@ -51,7 +51,8 @@ class VGM(nn.Module):
                  sys_path='/aifs4su/mmcode/worldm/RoboCrafter',
                  proj_tklen: int = 16,
                  proj_dim: int = 4096,
-                 fake_ddpm_step=900):
+                 fake_ddpm_step=900,
+                 mode='fix'):
         super().__init__()
         from omegaconf import OmegaConf
         import sys 
@@ -62,7 +63,6 @@ class VGM(nn.Module):
         self.ckpt_path = ckpt_path
         self.proj_dim = proj_dim
         self.fake_ddpm_step = fake_ddpm_step
-        self.default_image_resolution=(320,512)
         perframe_ae = True
 
         config = OmegaConf.load(config_yaml)
@@ -70,12 +70,9 @@ class VGM(nn.Module):
         ## set use_checkpoint as False as when using deepspeed, it encounters an error "deepspeed backend not set"
         self.model_config['params']['unet_config']['params']['use_checkpoint'] = False
         # state_dict = torch.load(ckpt_path, map_location="cpu")
+        h,w = self.model_config['params']['image_size']
+        self.default_image_resolution=(h,w)
 
-        overwatch.info(
-        f" ===== Loading [bold blue] Video Generation Model [/] ====\n"
-        f"Found Config =>> Loading Video Generation Model config from [bold]{self.config_yaml}[/] with:\n"
-        f"             Checkpoint Path =>> [underline]`{self.ckpt_path}`[/]"
-        )
 
         # state_dict.name
         vgm = instantiate_from_config(self.model_config)
@@ -99,10 +96,23 @@ class VGM(nn.Module):
                 vgm.embedder.model.logit_scale.view(1)
             )
 
+        if mode=='freeze':
+            self.vgm.eval()
+        elif mode=='lora':
+            self.set_trainable_param(use_lora=True)
+        elif mode=='full':
+            self.set_trainable_param(use_lora=False)
+    
         self.vgm.embedder.eval()
         self.vgm.image_proj_model.eval()
-        self.set_trainable_param()
-        self.vgm.eval()
+
+        overwatch.info(
+        f" ===== Loading [bold blue] Video Generation Model [/] ====\n"
+        f"Found Config =>> Loading Video Generation Model config from [bold]{self.config_yaml}[/] with:\n"
+        f"             Checkpoint Path =>> [underline]`{self.ckpt_path}`[/]"
+        f" Running VGM backbone (if training) in =>> [underline]`{mode}`[/]"
+        )
+
 
     def init_projection(self, proj_dim):
         h,w = self.model_config['params']['image_size']
@@ -116,7 +126,7 @@ class VGM(nn.Module):
             drop=0)
 
 
-    def set_trainable_param(self):
+    def set_trainable_param(self, use_lora=False):
         # 冻结所有参数
         for param in self.vgm.parameters():
             param.requires_grad = False
@@ -128,7 +138,7 @@ class VGM(nn.Module):
         for param in self.projection.parameters():
             param.requires_grad = True
         
-        # self._init_unet_lora(use_lora=True)
+        self._init_unet_lora(use_lora=use_lora)
 
     def _init_unet_lora(self, use_lora):
         import peft
@@ -146,6 +156,7 @@ class VGM(nn.Module):
 
 
     def get_image_transform(self,video_size=(320,512), video_frames=16, interp=False):
+        video_size = (self.default_image_resolution[0]*8,self.default_image_resolution[1]*8)
         transform = transforms.Compose([
             transforms.Resize(min(video_size)),
             transforms.CenterCrop(video_size),
@@ -166,11 +177,12 @@ class VGM(nn.Module):
         return time_mask
 
     def one_ddim_step_forward(self, prompts, images, n_samples=1, ddim_steps=50, ddim_eta=1., \
-                        unconditional_guidance_scale=1.0, cfg_img=None, fs=None, text_input=False, multiple_cond_cfg=False, loop=False, interp=False, timestep_spacing='uniform', guidance_rescale=0.0, **kwargs):
+                        unconditional_guidance_scale=1.0, cfg_img=None, fs=16, text_input=False, \
+                        multiple_cond_cfg=False, loop=False, interp=False, timestep_spacing='uniform', guidance_rescale=0.0, **kwargs):
         """
         model forward一次 ，取出一次forward的feature
         noise_shape = [args.bs, channels, n_frames, h, w]
-        image [b,c,h,w] TODO: 先按照RLDS dataset默认的设定，load第一个frame来看看。
+        image [b,c,h,w] 
         return:
             cognition_features: [B, T, D]
 
@@ -179,7 +191,8 @@ class VGM(nn.Module):
         images = torch.stack(images, dim=0).to(device)
         noise_shape = images.shape
         batch_size = noise_shape[0]
-        # fs = torch.tensor([fs] * batch_size, dtype=torch.long, device=device)
+        fs = torch.tensor([fs] * batch_size, dtype=torch.long, device=device)
+        kwargs.update({"fs": fs.long()})
 
         if not text_input:
             prompts = [""]*batch_size
@@ -325,9 +338,9 @@ class VgmACT(nn.Module):
         # # extract the last hidden state and the learnable EOS token feature
         num_params = sum(p.numel() for p in self.vgm.parameters())
         num_trainable_params = sum(p.numel() for p in self.vgm.parameters() if p.requires_grad)
-        overwatch.info(
-            f"# Parameters after re-set (in millions): {num_params / 10**6:.3f} Total, {num_trainable_params / 10**6:.3f} Trainable"
-        )
+        # overwatch.info(
+        #     f"# Parameters after re-set (in millions): {num_params / 10**6:.3f} Total, {num_trainable_params / 10**6:.3f} Trainable"
+        # )
 
         cognition_features = self.vgm.one_ddim_step_forward(prompts=lang,images=pixel_values) # B, 1, D
 
@@ -393,6 +406,7 @@ class VgmACT(nn.Module):
         action_model_type: str = 'DiT-B',
         use_ema: bool = False,
         norm_stats = None,
+        full_ckpt=None,
         **kwargs,
     ) -> VgmACT:
 
@@ -407,16 +421,24 @@ class VgmACT(nn.Module):
                         use_ema = use_ema,
                         norm_stats = norm_stats,
                         )
+        if full_ckpt is not None:
+            model_state_dict=torch.load(full_ckpt, map_location="cpu")["model"]
+         # Load ActionModel from Checkpoint
+            overwatch.info(
+                f" ===== Loading [bold blue] Pretrained Weight [/] ====\n"
+                f"=>> Loading Action model and VGM from [bold]{full_ckpt}[/] with:\n"
+                )
+            if "action_model" in model_state_dict:
+                vgmact.action_model.load_state_dict(model_state_dict["action_model"])
+                if "ema_diffusion" in model_state_dict and use_ema:
+                    vgmact.ema_diffusion.load_state_dict(model_state_dict["ema_diffusion"])
+                elif use_ema:
+                    vgmact.ema_diffusion.load_state_dict(model_state_dict["action_model"])
+            else:
+                overwatch.warning("No ActionModel found in the pretrained checkpoint. Initializing a new one.")
+            vgmact.vgm.projection.load_state_dict(model_state_dict["vgm.projection"])
+            vgmact.vgm.vgm.model.load_state_dict(model_state_dict["vgm.vgm.model"])
 
-        # Load ActionModel from Checkpoint
-        # if "action_model" in model_state_dict:
-        #     vgmact.action_model.load_state_dict(model_state_dict["action_model"])
-        #     if "ema_diffusion" in model_state_dict and use_ema:
-        #         vgmact.ema_diffusion.load_state_dict(model_state_dict["ema_diffusion"])
-        #     elif use_ema:
-        #         vgmact.ema_diffusion.load_state_dict(model_state_dict["action_model"])
-        # else:
-        overwatch.warning("No ActionModel found in the pretrained checkpoint. Initializing a new one.")
         return vgmact        
 
     @torch.inference_mode()
@@ -442,70 +464,29 @@ class VgmACT(nn.Module):
 
         @return Unnormalized (continuous) action vector --> end-effector deltas.
         """
-        image_transform, tokenizer = self.vlm.vision_backbone.image_transform, self.vlm.llm_backbone.tokenizer
 
-        # Build VLA Prompt
-        prompt_builder = self.vlm.get_prompt_builder()
-        prompt_builder.add_turn(role="human", message=f"What action should the robot take to {instruction.lower()}?")
-        prompt_text = prompt_builder.get_prompt()
-        # Prepare Inputs
-        input_ids = tokenizer(prompt_text, truncation=True, return_tensors="pt").input_ids.to(self.vlm.device)
-        if isinstance(tokenizer, LlamaTokenizerFast):
-            # Note: We need to add this special empty token ('') after the colon (':') token in "ASSISTANT:"
-            #       insert it to match the inputs seen at training time. The empty token is at index 29871.
-            #       We also need to add the special cognition token at index 2 (i.e. the EOS token).
-            input_ids = torch.cat(
-                (input_ids, torch.unsqueeze(torch.Tensor([29871, 2]).long(), dim=0).to(self.vlm.device)), dim=1
-            )
-        else:
-            raise ValueError(f"Unsupported `tokenizer` type = {type(tokenizer)}")
+        # TODO Image transform
+        device = self.vgm.vgm.model.diffusion_model.out[2].weight.device
+        image_transform = self.vgm.get_image_transform()
+        pixel_values = image_transform(image).to(device)
 
-        # Preprocess Image
-        pixel_values = image_transform(image)
-        if isinstance(pixel_values, torch.Tensor):
-            pixel_values = pixel_values[None, ...].to(self.vlm.device)
-        elif isinstance(pixel_values, dict):
-            pixel_values = {k: v[None, ...].to(self.vlm.device) for k, v in pixel_values.items()}
-        else:
-            raise ValueError(f"Unsupported `pixel_values` type = {type(pixel_values)}")
-        
-        # Invoke super().generate --> taps into `GenerationMixin` which (redirects) to `forward()`
-        autocast_dtype = self.vlm.llm_backbone.half_precision_dtype
-
-        # Generate cognition feature through vlm
-        with torch.autocast("cuda", dtype=autocast_dtype, enabled=self.vlm.enable_mixed_precision_training):
-            # fmt: off
-            output = super(PrismaticVLM, self.vlm).generate(
-                input_ids=input_ids,                            # Shape: [1, seq]
-                pixel_values=pixel_values,                      # Shape: [1, 3, res, res] or Dict[str, ...]
-                max_new_tokens=1,
-                output_hidden_states=True, 
-                return_dict_in_generate=True,
-                **kwargs
-            )
-            # fmt: on
-
-        # Extract cognition feature
-        cognition_features = output.hidden_states[0][-1][:,-1,:]
-        assert (cognition_features.shape[0], cognition_features.shape[1]) == (1,4096), "Batch size must be 1 for action prediction"
-        using_cfg = cfg_scale > 1.0
-
-        model_dtype = next(self.action_model.net.parameters()).dtype
+        # print(pixel_values.shape)
+        cognition_features = self.vgm.one_ddim_step_forward(prompts=[instruction],images=[pixel_values]) # B, 1, D]
+        # print(cognition_features.shape)
+        # import pdb;pdb.set_trace()
         B = cognition_features.shape[0]
-
-        cognition_features = cognition_features.unsqueeze(1).to(model_dtype)  # [B, 1, D]
-
-        print("cognition_features.shape",cognition_features.shape)
-        import pdb; pdb.set_trace()
+        model_dtype = next(self.action_model.net.parameters()).dtype
         # Sample random noise
         noise = torch.randn(B, self.future_action_window_size+1, self.action_model.in_channels, device=cognition_features.device).to(model_dtype)  #[B, T, D]
-    
+
+        using_cfg = cfg_scale > 1.0
         # Setup classifier-free guidance:
         if using_cfg:
             noise = torch.cat([noise, noise], 0)
             uncondition = self.action_model.net.z_embedder.uncondition
             uncondition = uncondition.unsqueeze(0)  #[1, D]
             uncondition = uncondition.expand(B, 1, -1) #[B, 1, D]
+            uncondition = uncondition.repeat(1,16,1)
             z = torch.cat([cognition_features, uncondition], 0)
             cfg_scale = cfg_scale
             model_kwargs = dict(z=z, cfg_scale=cfg_scale)
@@ -756,10 +737,10 @@ class VgmACT(nn.Module):
     
 
 if __name__ == "__main__":
-    config_yaml = "/aifs4su/mmcode/worldm/RoboCrafter/save_checkpoints/calvin_training_512_v1.0_lr05/configs/model.yaml"
-    ckpt_path = "/aifs4su/mmcode/worldm/RoboCrafter/save_checkpoints/ww_training_512_v1.0_rt1/checkpoints/epoch=37-step=80000.ckpt"
+    config_yaml = "/aifs4su/mmcode/worldm/RoboCrafter/save_checkpoints/ww_training_128_v1.0_rt1/configs/model_infer.yaml"
+    ckpt_path = "/aifs4su/mmcode/worldm/RoboCrafter/save_checkpoints/ww_training_128_v1.0_rt1/checkpoints/epoch=13-step=9000.ckpt"
     vgm = VGM(config_yaml=config_yaml,
               ckpt_path=ckpt_path).cuda()
-    image = [torch.zeros((3,320,512))*4]
+    image = [torch.zeros((3,128,128))*4]
     lang=['a','a','a','a']
     vgm.one_ddim_step_forward(lang, image)

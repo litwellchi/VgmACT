@@ -227,6 +227,8 @@ def load_vgmvla(
     cache_dir: Optional[Union[str, Path]] = None,
     load_for_training: bool = False,
     model_type: str = "pretrained",
+    vgm_param_mode='lora',
+    full_ckpt=None,
     **kwargs,):
 
     #   checkpoint `.pt` file, rather than the top-level run directory!
@@ -265,7 +267,8 @@ def load_vgmvla(
     # Load VLM using `from_pretrained` (clobbers HF syntax... eventually should reconcile)
     overwatch.info(f"Loading Video Generation Backbone from Checkpoint")
     vgm = VGM(config_json,
-              model_id_or_path)
+              model_id_or_path,
+              mode=vgm_param_mode)
 
     # Load VLM using `from_pretrained` (clobbers HF syntax... eventually should reconcile)
     overwatch.info(f"Loading Video Generation Action Model from Checkpoint")
@@ -274,6 +277,7 @@ def load_vgmvla(
         vgm,
         freeze_weights=not load_for_training,
         norm_stats=norm_stats,
+        full_ckpt=full_ckpt,
         **kwargs,
     )
 

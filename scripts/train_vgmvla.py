@@ -27,10 +27,13 @@ import torch
 import torch.distributed as dist
 import yaml
 import wandb
+import sys
 
+sys.path.insert(1,'/aifs4su/mmcode/worldm/videoact/VgmACT')
 from prismatic.overwatch import initialize_overwatch
 from prismatic.util import set_global_seed
 # from prismatic.vla import get_vla_dataset_and_collator
+import vgm_dataset
 from vgm_dataset import get_vla_dataset_and_collator
 from prismatic.vla.datasets.rlds.utils.data_utils import save_dataset_statistics
 from prismatic.models.backbones.llm.prompting import PurePromptBuilder
@@ -76,6 +79,7 @@ class TrainConfig:
     save_interval: int = 2500                                       # Interval for saving checkpoints (in steps)
     image_aug: bool = False                                         # Whether to enable image augmentations
     seed: int = 42                                                  # Random seed (for reproducibility)
+    vgm_param_mode: str = "lora"                                    # vgm paramater groups
 
     # HF Hub Credentials (for any gated models)
     hf_token: Union[str, Path] = Path(".hf_token")                  # Environment variable or Path to HF Token
@@ -174,6 +178,7 @@ def train(cfg: TrainConfig) -> None:
                             future_action_window_size=cfg.future_action_window_size,
                             past_action_window_size=cfg.past_action_window_size,
                             use_ema=cfg.use_ema,
+                            vgm_param_mode=cfg.vgm_param_mode
                             )
         else:
             vla = load_vla(cfg.pretrained_checkpoint, 

@@ -13,7 +13,7 @@ CUDA_VISIBLE_DEVICES=1 /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/bin/t
   --vla.per_device_batch_size $bsz_cards \
   --vla.learning_rate 2e-5 \
   --run_root_dir "/aifs4su/mmcode/worldm/CogACT" \
-  --data_root_dir "/aifs4su/mmcode/worldm/open_x_embodiment/fractal20220817_data/2tasks" \
+  --data_root_dir "/aifs4su/mmcode/worldm/open_x_embodiment/oxe" \
   --image_aug True \
   --save_interval 10000 \
   --run_id 2tasks_$(date +%Y%m%d_%H%M%S) \
