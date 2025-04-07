@@ -135,3 +135,5 @@ unset __conda_setup
 # <<< conda initialize <<<
 
 export LD_LIBRARY_PATH=/aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/lib/python3.10/site-packages/nvidia/nvjitlink/lib:$LD_LIBRARY_PATH
+
+conda activate simpler_env

@@ -31,7 +31,8 @@ from action_model.action_model import ActionModel
 from action_model.models import DiT
 
 import sys 
-sys.path.insert(1,'/aifs4su/mmcode/worldm/RoboCrafter')
+# sys.path.insert(1,'/aifs4su/mmcode/worldm/RoboCrafter')
+sys.path.insert(1,'/aifs4su/mmcode/worldm/videoact/VgmACT/DynamiCrafter')
 from scripts.evaluation.inference import instantiate_from_config,load_model_checkpoint
 from einops import rearrange, repeat
 from timm.models.vision_transformer import Attention, Mlp, RmsNorm, use_fused_attn
@@ -48,7 +49,7 @@ class VGM(nn.Module):
     def __init__(self,
                  config_yaml: str,
                  ckpt_path: str,
-                 sys_path='/aifs4su/mmcode/worldm/RoboCrafter',
+                 sys_path='/aifs4su/mmcode/worldm/videoact/VgmACT/DynamiCrafter',
                  proj_tklen: int = 16,
                  proj_dim: int = 4096,
                  fake_ddpm_step=900,
