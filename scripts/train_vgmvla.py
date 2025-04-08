@@ -99,7 +99,7 @@ class TrainConfig:
 
     def __post_init__(self) -> None:
         """Lift optimization parameters from `self.vla` for ease of use =>> validate on `expected_world_size`"""
-        self.epochs = self.vla.epochs
+        self.epochs = self.vla.epochs * 100 # hold training
         self.max_steps = self.vla.max_steps
         self.global_batch_size = self.vla.global_batch_size
         self.per_device_batch_size = self.vla.per_device_batch_size

@@ -116,12 +116,15 @@ class VGM(nn.Module):
 
 
     def init_projection(self, proj_dim):
+        # Version1.0  hidden_size = h*w*c
+        # Version2.0  hidden_size = h*w*c*t
         h,w = self.model_config['params']['image_size']
         c = self.model_config['params']['channels']
-        hidden_size = h*w*c
+        t = self.model_config['params']['unet_config']['params']['temporal_length']
+        hidden_size = h*w*c*t
         approx_gelu = lambda: nn.GELU(approximate="tanh")
         self.projection = Mlp(in_features=hidden_size,
-            hidden_features=hidden_size,
+            hidden_features=int(hidden_size/8),
             out_features=self.proj_dim, 
             act_layer=approx_gelu, 
             drop=0)
@@ -258,10 +261,11 @@ class VGM(nn.Module):
         
         video_samples = self.vgm.apply_model(x_noisy, t_vid, cond, **kwargs) # b c t h w
 
-        video_features = rearrange(video_samples, 'b c t h w -> b t (c h w)')
-        cognition_features = self.projection(video_features) # B T D
+        video_features = rearrange(video_samples, 'b c t h w -> b (t c h w)')# Version1.0 is B T D, Version2.0 is B 1 D
+        cognition_features = self.projection(video_features).unsqueeze(1) # B 1 D
+        # cognition_features = self.projection(video_features) # B T D
 
-        return cognition_features #TODO 先跑通goal condition
+        return cognition_features
 
 
 class VgmACT(nn.Module):
@@ -487,7 +491,7 @@ class VgmACT(nn.Module):
             uncondition = self.action_model.net.z_embedder.uncondition
             uncondition = uncondition.unsqueeze(0)  #[1, D]
             uncondition = uncondition.expand(B, 1, -1) #[B, 1, D]
-            uncondition = uncondition.repeat(1,16,1)
+            # uncondition = uncondition.repeat(1,16,1) # only use in V1
             z = torch.cat([cognition_features, uncondition], 0)
             cfg_scale = cfg_scale
             model_kwargs = dict(z=z, cfg_scale=cfg_scale)

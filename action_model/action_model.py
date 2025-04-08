@@ -9,6 +9,8 @@ import torch
 from torch import nn
 
 # Create model sizes of ActionModels
+def DiT_Mini(**kwargs):
+    return DiT(depth=6, hidden_size=384, num_heads=4, **kwargs)
 def DiT_S(**kwargs):
     return DiT(depth=6, hidden_size=384, num_heads=4, **kwargs)
 def DiT_B(**kwargs):

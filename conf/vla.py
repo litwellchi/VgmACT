@@ -75,7 +75,7 @@ class Exp_SigLIP_224px_Bridge(VLAConfig):
     shuffle_buffer_size: int = 256_000
 
     # Optimization Parameters
-    epochs: int = 1000
+    epochs: int = 100000
     max_steps: Optional[int] = None
 
     expected_world_size: int = 8

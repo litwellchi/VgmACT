@@ -1,12 +1,30 @@
-# CogACT: A Foundational Vision-Language-Action Model for Synergizing Cognition and Action in Robotic Manipulation
-### 🚩[Project Page](https://cogact.github.io/) | 📑[Paper](https://arxiv.org/abs/2411.19650) | 🤗[Models](https://huggingface.co/CogACT)
+# VgmACT Updating Log
+
+## Version1.0
+* gitbranch version1.0
+* test successfully on rlbench
+* successful rate count:
+* Setting: VGM last layer + Projection + Editing action head to 16 dim condition.
 
 
-This is the code for CogACT: A Foundational Vision-Language-Action Model for Synergizing Cognition and Action in Robotic Manipulation.
-## News
 
-- 🔥 [2024-12-23] Update new setions: [Deployment in The Real World](#deployment-in-the-real-world) and [Inference Speed](#inference-speed). It demonstrates the advantage of our approach in inference speed.
-- 🔥 [2024-12-01] Initial release.
+
+
+
+## Version2.0
+* Project to 1 token.
+* Add image loss
+* Training LoRA
+
+
+
+
+
+
+
+
+
+
 
 ## Contents
  * [**Installation**](#installation)
