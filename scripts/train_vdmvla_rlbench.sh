@@ -1,7 +1,7 @@
 num_cards=7
-bsz_cards=8
+bsz_cards=16
 time=$(date +%Y%m%d_%H%M%S)
-run_id=V2_DiTS_freeze_128vgm_rlbench10_${time}
+run_id=V22_DiTS_lora_128vgm_vidloss_rlbench10_${time}
 mkdir ./${run_id}--image_aug
 
 export WANDB_API_KEY="231c840bf4c83c49cc2241bcce066cb7b75967b2"
@@ -19,7 +19,7 @@ CUDA_VISIBLE_DEVICES=1,2,3,4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/simpl
   --run_root_dir "/aifs4su/mmcode/worldm/videoact/VgmACT" \
   --data_root_dir "/aifs4su/mmcode/worldm/open_x_embodiment/rlbench/dataset" \
   --image_aug True \
-  --save_interval 5000 \
+  --save_interval 10000 \
   --run_id ${run_id} \
   --repeated_diffusion_steps 8 \
   --future_action_window_size 15 \
@@ -28,5 +28,5 @@ CUDA_VISIBLE_DEVICES=1,2,3,4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/simpl
   --pretrained_checkpoint "/aifs4su/mmcode/worldm/RoboCrafter/save_checkpoints/ww_training_128_v1.0_rt1/checkpoints/epoch=13-step=9000.ckpt"\
   --wandb_entity 'litwellchi' \
   --is_resume False \
-  --vgm_param_mode 'freeze' \ 
+  --vgm_param_mode 'lora' \
   &>> ./${run_id}--image_aug/train.log &

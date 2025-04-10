@@ -179,29 +179,50 @@ class VGM(nn.Module):
         time_mask[0]=1
         time_mask = time_mask.view(1, 1, t, 1, 1).expand(b, c, t, h, w)
         return time_mask
+    
+    def get_video_loss(self, x_start, model_output, noise, t):
+        if self.vgm.parameterization == "x0":
+            target = x_start
+        elif self.vgm.parameterization == "eps":
+            target = noise
+        elif self.vgm.parameterization == "v":
+            target = self.vgm.get_v(x_start, noise, t)
+        else:
+            raise NotImplementedError()
+        
+        loss_simple = self.vgm.get_loss(model_output, target, mean=False).mean([1, 2, 3, 4])
+        return loss_simple
 
     def one_ddim_step_forward(self, prompts, images, n_samples=1, ddim_steps=50, ddim_eta=1., \
                         unconditional_guidance_scale=1.0, cfg_img=None, fs=16, text_input=False, \
-                        multiple_cond_cfg=False, loop=False, interp=False, timestep_spacing='uniform', guidance_rescale=0.0, **kwargs):
+                        multiple_cond_cfg=False, loop=False, interp=False, timestep_spacing='uniform', guidance_rescale=0.0, train=False, **kwargs):
         """
         model forward一次 ，取出一次forward的feature
         noise_shape = [args.bs, channels, n_frames, h, w]
         image [b,c,h,w] 
+        video [b,c,t, h,w] 
         return:
             cognition_features: [B, T, D]
 
         """
         device = self.vgm.model.diffusion_model.out[2].weight.device
         images = torch.stack(images, dim=0).to(device)
+
+
         noise_shape = images.shape
-        batch_size = noise_shape[0]
+        batch_size = images.shape[0]
         fs = torch.tensor([fs] * batch_size, dtype=torch.long, device=device)
         kwargs.update({"fs": fs.long()})
 
+        if len(images.shape)==5: # video
+            videos = images
+            images = images[:,:,0,:,:]
+        else:
+            videos = images.unsqueeze(2)#bcthw #TODO
+            videos = repeat(videos, 'b c t h w -> b c (repeat t) h w', repeat=16)
+            
         if not text_input:
             prompts = [""]*batch_size
-        videos= images.unsqueeze(2)#bcthw #TODO
-        videos = repeat(videos, 'b c t h w -> b c (repeat t) h w', repeat=16)
         img = videos[:,:,0] #bchw
         img_emb = self.vgm.embedder(img) ## blc
         img_emb = self.vgm.image_proj_model(img_emb).detach().clone()
@@ -260,11 +281,16 @@ class VGM(nn.Module):
             x_noisy = x_start * cond_mask + (1. - cond_mask) * x_noisy
         
         video_samples = self.vgm.apply_model(x_noisy, t_vid, cond, **kwargs) # b c t h w
+        
+
 
         video_features = rearrange(video_samples, 'b c t h w -> b (t c h w)')# Version1.0 is B T D, Version2.0 is B 1 D
         cognition_features = self.projection(video_features).unsqueeze(1) # B 1 D
         # cognition_features = self.projection(video_features) # B T D
 
+        if train:
+            video_loss = self.get_video_loss(x_start,video_samples,noise,t_vid)
+            return cognition_features, video_loss
         return cognition_features
 
 
@@ -347,7 +373,7 @@ class VgmACT(nn.Module):
         #     f"# Parameters after re-set (in millions): {num_params / 10**6:.3f} Total, {num_trainable_params / 10**6:.3f} Trainable"
         # )
 
-        cognition_features = self.vgm.one_ddim_step_forward(prompts=lang,images=pixel_values) # B, 1, D
+        cognition_features, video_loss = self.vgm.one_ddim_step_forward(prompts=lang,images=pixel_values,train=True) # B, 1, D
 
         actions_history = actions[:,0:self.past_action_window_size,:]
         actions_future = actions[:, -(self.future_action_window_size+1):, :]
@@ -358,7 +384,8 @@ class VgmACT(nn.Module):
         cognition_features_repeated = cognition_features.repeat(repeated_diffusion_steps, 1, 1) # [repeated_diffusion_steps*B, 1, D]
 
         # Action model forward and compute loss
-        loss = self.action_model.loss(actions_repeated, cognition_features_repeated)
+        act_loss = self.action_model.loss(actions_repeated, cognition_features_repeated)
+        loss = act_loss + video_loss.mean()
         return loss,  cognition_features
 
     def get_fsdp_wrapping_policy(self) -> Callable:
@@ -462,7 +489,7 @@ class VgmACT(nn.Module):
         @param image: PIL Image as [height, width, 3]
         @param instruction: Task instruction string
         @param unnorm_key: Optional dataset name for retrieving un-normalizing statistics; if None, checks that model
-                           was trained only on a single dataset, and retrieves those statistics.
+        was trained only on a single dataset, and retrieves those statistics.
         @param cfg_scale: Scaling factor for classifier-free guidance (CFG); if == 1.0, CFG is disabled.
         @param use_ddim: Use DDIM sampling instead of DDPM sampling.
         @param num_ddim_steps: Number of DDIM steps to use for sampling.

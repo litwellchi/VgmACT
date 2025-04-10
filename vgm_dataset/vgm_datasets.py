@@ -118,6 +118,7 @@ class RLDSBatchTransform:
             dataset_name, action = rlds_batch["dataset_name"], rlds_batch["action"][0]
 
         img = Image.fromarray(rlds_batch["observation"]["image_primary"][0])
+        videos = [Image.fromarray(rlds_batch["observation"]["image_primary"][i]) for i in range(len(rlds_batch["observation"]["image_primary"]))]
         lang = rlds_batch["task"]["language_instruction"].decode().lower()
 
         # Construct Chat-based Prompt
@@ -148,6 +149,7 @@ class RLDSBatchTransform:
         input_ids, labels = None, None
         # input_ids, labels = torch.tensor(input_ids), torch.tensor(labels)
         pixel_values = self.image_transform(img)
+        # pixel_values = self.image_transform(videos)
 
         # Add future actions to batch
         if rlds_batch["action"].shape[0] > 1:
