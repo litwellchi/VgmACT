@@ -56,3 +56,22 @@ class ContrastiveModel(nn.Module):
         loss_p2i = F.cross_entropy(logits.T, labels)
 
         return (loss_i2p + loss_p2i) / 2
+    
+
+from tqdm import tqdm
+def train(model, dataloader, optimizer, device):
+    model.train()
+    total_loss = 0
+    for images, poses in tqdm(dataloader):
+        images = images.to(device)
+        poses = poses.to(device)
+
+        optimizer.zero_grad()
+        z_img, z_pose = model(images, poses)
+        loss = model.nt_xent_loss(z_img, z_pose)
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item()
+
+    return total_loss / len(dataloader)

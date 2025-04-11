@@ -120,7 +120,6 @@ class RLDSBatchTransform:
         img = Image.fromarray(rlds_batch["observation"]["image_primary"][0])
         videos = [Image.fromarray(rlds_batch["observation"]["image_primary"][i]) for i in range(len(rlds_batch["observation"]["image_primary"]))]
         lang = rlds_batch["task"]["language_instruction"].decode().lower()
-
         # Construct Chat-based Prompt
         # prompt_builder = self.prompt_builder_fn("openvla")
 
@@ -149,7 +148,8 @@ class RLDSBatchTransform:
         input_ids, labels = None, None
         # input_ids, labels = torch.tensor(input_ids), torch.tensor(labels)
         pixel_values = self.image_transform(img)
-        # pixel_values = self.image_transform(videos)
+        # pixel_values = [self.image_transform(image) for image in videos]
+        # pixel_values = torch.stack(pixel_values,dim=1) # c, t, h, w
 
         # Add future actions to batch
         if rlds_batch["action"].shape[0] > 1:

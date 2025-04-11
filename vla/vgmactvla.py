@@ -50,7 +50,6 @@ class VGM(nn.Module):
                  config_yaml: str,
                  ckpt_path: str,
                  sys_path='/aifs4su/mmcode/worldm/videoact/VgmACT/DynamiCrafter',
-                 proj_tklen: int = 16,
                  proj_dim: int = 4096,
                  fake_ddpm_step=900,
                  mode='fix'):
@@ -65,13 +64,14 @@ class VGM(nn.Module):
         self.proj_dim = proj_dim
         self.fake_ddpm_step = fake_ddpm_step
         perframe_ae = True
-
+        
         config = OmegaConf.load(config_yaml)
         self.model_config = config.pop("model", OmegaConf.create())
         ## set use_checkpoint as False as when using deepspeed, it encounters an error "deepspeed backend not set"
         self.model_config['params']['unet_config']['params']['use_checkpoint'] = False
         # state_dict = torch.load(ckpt_path, map_location="cpu")
         h,w = self.model_config['params']['image_size']
+        self.video_length = self.model_config['params']['unet_config']['params']['temporal_length']
         self.default_image_resolution=(h,w)
 
 
@@ -159,7 +159,7 @@ class VGM(nn.Module):
             self.vgm.model.diffusion_model.print_trainable_parameters()
 
 
-    def get_image_transform(self,video_size=(320,512), video_frames=16, interp=False):
+    def get_image_transform(self):
         video_size = (self.default_image_resolution[0]*8,self.default_image_resolution[1]*8)
         transform = transforms.Compose([
             transforms.Resize(min(video_size)),
@@ -200,7 +200,7 @@ class VGM(nn.Module):
         model forward一次 ，取出一次forward的feature
         noise_shape = [args.bs, channels, n_frames, h, w]
         image [b,c,h,w] 
-        video [b,c,t, h,w] 
+        video [b,c,t,h,w] 
         return:
             cognition_features: [B, T, D]
 
@@ -209,18 +209,19 @@ class VGM(nn.Module):
         images = torch.stack(images, dim=0).to(device)
 
 
-        noise_shape = images.shape
         batch_size = images.shape[0]
+        fs = self.video_length
         fs = torch.tensor([fs] * batch_size, dtype=torch.long, device=device)
         kwargs.update({"fs": fs.long()})
-
+        # print(images.shape)
         if len(images.shape)==5: # video
             videos = images
             images = images[:,:,0,:,:]
         else:
             videos = images.unsqueeze(2)#bcthw #TODO
-            videos = repeat(videos, 'b c t h w -> b c (repeat t) h w', repeat=16)
+            videos = repeat(videos, 'b c t h w -> b c (repeat t) h w', repeat=self.video_length)
             
+        # print(videos.shape)
         if not text_input:
             prompts = [""]*batch_size
         img = videos[:,:,0] #bchw
@@ -282,7 +283,7 @@ class VGM(nn.Module):
         
         video_samples = self.vgm.apply_model(x_noisy, t_vid, cond, **kwargs) # b c t h w
         
-
+        # print(x_start.shape)
 
         video_features = rearrange(video_samples, 'b c t h w -> b (t c h w)')# Version1.0 is B T D, Version2.0 is B 1 D
         cognition_features = self.projection(video_features).unsqueeze(1) # B 1 D
@@ -385,7 +386,8 @@ class VgmACT(nn.Module):
 
         # Action model forward and compute loss
         act_loss = self.action_model.loss(actions_repeated, cognition_features_repeated)
-        loss = act_loss + video_loss.mean()
+        # loss = act_loss + video_loss.mean()
+        loss = act_loss
         return loss,  cognition_features
 
     def get_fsdp_wrapping_policy(self) -> Callable:
