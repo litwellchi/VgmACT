@@ -96,7 +96,8 @@ class TrainConfig:
     action_model_type: str = 'DiT-B'                                # Action model type, chose from ['DiT-S', 'DiT-B', 'DiT-L']
     use_ema: bool = False                                           # EMA version of action model
     action_dim: int = 7                                             # Dimension of action space
-
+    pretrain_action_model: None
+    
     def __post_init__(self) -> None:
         """Lift optimization parameters from `self.vla` for ease of use =>> validate on `expected_world_size`"""
         self.epochs = self.vla.epochs * 100 # hold training
@@ -178,7 +179,8 @@ def train(cfg: TrainConfig) -> None:
                             future_action_window_size=cfg.future_action_window_size,
                             past_action_window_size=cfg.past_action_window_size,
                             use_ema=cfg.use_ema,
-                            vgm_param_mode=cfg.vgm_param_mode
+                            vgm_param_mode=cfg.vgm_param_mode,
+                            pretrain_action_model=cfg.pretrain_action_model,
                             )
         else:
             vla = load_vla(cfg.pretrained_checkpoint, 

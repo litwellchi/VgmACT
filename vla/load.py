@@ -229,6 +229,7 @@ def load_vgmvla(
     model_type: str = "pretrained",
     vgm_param_mode='lora',
     full_ckpt=None,
+    pretrain_action_model=None,
     **kwargs,):
 
     #   checkpoint `.pt` file, rather than the top-level run directory!
@@ -278,6 +279,7 @@ def load_vgmvla(
         freeze_weights=not load_for_training,
         norm_stats=norm_stats,
         full_ckpt=full_ckpt,
+        pretrain_action_model=pretrain_action_model,
         **kwargs,
     )
 

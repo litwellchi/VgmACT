@@ -29,4 +29,5 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/sim
   --wandb_entity 'litwellchi' \
   --is_resume False \
   --vgm_param_mode 'freeze' \
+  --pretrain_action_model '/aifs4su/mmcode/worldm/videoact/CogACT/CogACT-Small/checkpoints/CogACT-Small.pt' \
   &>> ./${run_id}--image_aug/train.log &

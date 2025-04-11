@@ -441,6 +441,7 @@ class VgmACT(nn.Module):
         use_ema: bool = False,
         norm_stats = None,
         full_ckpt=None,
+        pretrain_action_model=None,
         **kwargs,
     ) -> VgmACT:
 
@@ -472,7 +473,11 @@ class VgmACT(nn.Module):
                 overwatch.warning("No ActionModel found in the pretrained checkpoint. Initializing a new one.")
             vgmact.vgm.projection.load_state_dict(model_state_dict["vgm.projection"])
             vgmact.vgm.vgm.model.load_state_dict(model_state_dict["vgm.vgm.model"])
-
+        elif pretrain_action_model is not None:
+            overwatch.info(f"Using pretrained action model from {pretrain_action_model}")
+            action_model_state_dict = torch.load(pretrain_action_model, map_location="cpu")["model"]
+            if "action_model" in action_model_state_dict:
+                vgmact.action_model.load_state_dict(action_model_state_dict["action_model"])
         return vgmact        
 
     @torch.inference_mode()
