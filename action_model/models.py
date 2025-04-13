@@ -170,6 +170,7 @@ class DiT(nn.Module):
         future_action_window_size=1,
         past_action_window_size=0,
         learn_sigma=False,
+        condition_token_len=1,
     ):
         super().__init__()
 
@@ -182,7 +183,7 @@ class DiT(nn.Module):
         self.num_heads = num_heads
         self.past_action_window_size = past_action_window_size
         self.future_action_window_size = future_action_window_size
-        
+        self.condition_token_len = condition_token_len
         # Action history is not used now.
         self.history_embedder = HistoryEmbedder(action_size=in_channels, hidden_size=hidden_size)
         
@@ -192,9 +193,9 @@ class DiT(nn.Module):
         scale = hidden_size ** -0.5
 
         # Learnable positional embeddings
-        # +2, 1 for the conditional token, and one for the current action prediction
+        # +condition_token_len+1, condition_token_len for the conditional token, and 1 for the current action prediction
         self.positional_embedding = nn.Parameter(
-                scale * torch.randn(future_action_window_size + past_action_window_size + 2, hidden_size))
+                scale * torch.randn(future_action_window_size + past_action_window_size + condition_token_len+1, hidden_size))
 
         self.blocks = nn.ModuleList([
             DiTBlock(hidden_size, num_heads, mlp_ratio=mlp_ratio) for _ in range(depth)
@@ -256,7 +257,7 @@ class DiT(nn.Module):
         history: (N, H, D) tensor of action history # not used now
         x: (N, T, D) tensor of predicting action inputs
         t: (N,) tensor of diffusion timesteps
-        z: (N, 1, D) tensor of conditions
+        z: (N, self.condition_token_len, D) tensor of conditions
         """
         x = self.x_embedder(x)                              # (N, T, D)
         t = self.t_embedder(t)                              # (N, D)
@@ -267,7 +268,7 @@ class DiT(nn.Module):
         for block in self.blocks:
             x = block(x)                                    # (N, T+1, D)
         x = self.final_layer(x)                             # (N, T+1, out_channels)
-        return x[:, 1:, :]     # (N, T, C)
+        return x[:, self.condition_token_len:, :]     # (N, T, C)
 
     def forward_with_cfg(self, x, t, z, cfg_scale):
         """

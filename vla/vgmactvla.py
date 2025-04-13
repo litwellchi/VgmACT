@@ -128,6 +128,18 @@ class VGM(nn.Module):
             out_features=self.proj_dim, 
             act_layer=approx_gelu, 
             drop=0)
+        
+        self.img_projection = Mlp(in_features=1024,
+            hidden_features=int(1024),
+            out_features=self.proj_dim, 
+            act_layer=approx_gelu, 
+            drop=0)
+
+        self.lang_projection = Mlp(in_features=1024,
+            hidden_features=int(1024),
+            out_features=self.proj_dim, 
+            act_layer=approx_gelu, 
+            drop=0)
 
 
     def set_trainable_param(self, use_lora=False):
@@ -288,10 +300,18 @@ class VGM(nn.Module):
         video_features = rearrange(video_samples, 'b c t h w -> b (t c h w)')# Version1.0 is B T D, Version2.0 is B 1 D
         cognition_features = self.projection(video_features).unsqueeze(1) # B 1 D
         # cognition_features = self.projection(video_features) # B T D
-
+        print("img_emb.shape",img_emb.shape)
+        print("img_emb.shape",img_emb.shape)
+        img_cognition_features = self.img_projection(img_emb) # torch.Size([32, 64, 1024]) > B 64 D 
+        cond_cognition_features = self.lang_projection(cond_emb) # B 64 D
+        
         if train:
             video_loss = self.get_video_loss(x_start,video_samples,noise,t_vid)
             return cognition_features, video_loss
+        
+        # if use_cond_mask:
+        cognition_features = torch.cat([cognition_features, img_cognition_features, cond_cognition_features], dim=1) # B 3 D
+        
         return cognition_features
 
 
@@ -314,7 +334,8 @@ class VgmACT(nn.Module):
                                             token_size = token_size, 
                                             in_channels = action_dim, 
                                             future_action_window_size = future_action_window_size, 
-                                            past_action_window_size = past_action_window_size)
+                                            past_action_window_size = past_action_window_size,
+                                            condition_token_len=64+77+1) # img+lang+video
         self.vgm = vgm
         self.future_action_window_size = future_action_window_size
         self.past_action_window_size = past_action_window_size
@@ -345,8 +366,6 @@ class VgmACT(nn.Module):
     
     def freeze_backbones(self, stage):
         self.vlm.freeze_backbones(stage)
-  
-
 
     def forward(
         self,

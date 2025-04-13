@@ -30,7 +30,8 @@ class ActionModel(nn.Module):
                  future_action_window_size, 
                  past_action_window_size,
                  diffusion_steps = 100,
-                 noise_schedule = 'squaredcos_cap_v2'
+                 noise_schedule = 'squaredcos_cap_v2',
+                 condition_token_len=1,
                  ):
         super().__init__()
         self.in_channels = in_channels
@@ -45,13 +46,16 @@ class ActionModel(nn.Module):
             learn_sigma = False
         self.past_action_window_size = past_action_window_size
         self.future_action_window_size = future_action_window_size
+        self.condition_token_len = condition_token_len
+        # Create model
         self.net = DiT_models[model_type](
                                         token_size = token_size, 
                                         in_channels=in_channels, 
                                         class_dropout_prob = 0.1, 
                                         learn_sigma = learn_sigma, 
                                         future_action_window_size = future_action_window_size, 
-                                        past_action_window_size = past_action_window_size
+                                        past_action_window_size = past_action_window_size,
+                                        condition_token_len=1,
                                         )
 
     # Given condition z and ground truth token x, compute loss
