@@ -52,7 +52,8 @@ class VGM(nn.Module):
                  sys_path='/aifs4su/mmcode/worldm/videoact/VgmACT/DynamiCrafter',
                  proj_dim: int = 4096,
                  fake_ddpm_step=900,
-                 mode='fix'):
+                 mode='fix',
+                 mask_video_prob = 0.2):
         super().__init__()
         from omegaconf import OmegaConf
         import sys 
@@ -64,6 +65,7 @@ class VGM(nn.Module):
         self.proj_dim = proj_dim
         self.fake_ddpm_step = fake_ddpm_step
         perframe_ae = True
+        self.mask_video_prob = mask_video_prob
         
         config = OmegaConf.load(config_yaml)
         self.model_config = config.pop("model", OmegaConf.create())
@@ -293,24 +295,28 @@ class VGM(nn.Module):
             x_noisy = self.vgm.q_sample(x_start=x_start, t=t_vid, noise=noise)
             x_noisy = x_start * cond_mask + (1. - cond_mask) * x_noisy
         
-        video_samples = self.vgm.apply_model(x_noisy, t_vid, cond, **kwargs) # b c t h w
-        
-        # print(x_start.shape)
-
-        video_features = rearrange(video_samples, 'b c t h w -> b (t c h w)')# Version1.0 is B T D, Version2.0 is B 1 D
-        cognition_features = self.projection(video_features).unsqueeze(1) # B 1 D
-        # cognition_features = self.projection(video_features) # B T D
-        print("img_emb.shape",img_emb.shape)
-        print("img_emb.shape",img_emb.shape)
         img_cognition_features = self.img_projection(img_emb) # torch.Size([32, 64, 1024]) > B 64 D 
         cond_cognition_features = self.lang_projection(cond_emb) # B 64 D
-        
-        if train:
-            video_loss = self.get_video_loss(x_start,video_samples,noise,t_vid)
-            return cognition_features, video_loss
-        
+        if torch.rand(1).item() < self.mask_video_prob:
+            video_features = torch.zeros_like(cond_cognition_features)[:,:1,:]  # Mask the video feature by setting it to zero
+            cognition_features = torch.cat([video_features, img_cognition_features, cond_cognition_features], dim=1)  # B 3 D
+            
+            if train:
+                video_loss = 0
+                return cognition_features, video_loss        
+
+        else:
+            video_samples = self.vgm.apply_model(x_noisy, t_vid, cond, **kwargs) # b c t h w
+            video_features = rearrange(video_samples, 'b c t h w -> b (t c h w)')# Version1.0 is B T D, Version2.0 is B 1 D
+            video_features = self.projection(video_features).unsqueeze(1) # B 1 D
+        # cognition_features = self.projection(video_features) # B T D
         # if use_cond_mask:
-        cognition_features = torch.cat([cognition_features, img_cognition_features, cond_cognition_features], dim=1) # B 3 D
+            cognition_features = torch.cat([video_features, img_cognition_features, cond_cognition_features], dim=1)  # B 3 D
+            
+            if train:
+                video_loss = self.get_video_loss(x_start,video_samples,noise,t_vid)
+                return cognition_features, video_loss
+            
         
         return cognition_features
 
@@ -496,7 +502,20 @@ class VgmACT(nn.Module):
             overwatch.info(f"Using pretrained action model from {pretrain_action_model}")
             action_model_state_dict = torch.load(pretrain_action_model, map_location="cpu")["model"]
             if "action_model" in action_model_state_dict:
-                vgmact.action_model.load_state_dict(action_model_state_dict["action_model"])
+                try:
+                    vgmact.action_model.load_state_dict(action_model_state_dict["action_model"], strict=False)
+                except:
+                    model_dict = vgmact.action_model.state_dict()
+                    pretrained_dict = action_model_state_dict["action_model"]
+
+                    # 只保留形状匹配的参数
+                    compatible_dict = {
+                        k: v for k, v in pretrained_dict.items()
+                        if k in model_dict and v.shape == model_dict[k].shape
+                    }
+                    # 更新模型参数
+                    model_dict.update(compatible_dict)
+                    vgmact.action_model.load_state_dict(model_dict)
         return vgmact        
 
     @torch.inference_mode()
@@ -543,7 +562,7 @@ class VgmACT(nn.Module):
             noise = torch.cat([noise, noise], 0)
             uncondition = self.action_model.net.z_embedder.uncondition
             uncondition = uncondition.unsqueeze(0)  #[1, D]
-            uncondition = uncondition.expand(B, 1, -1) #[B, 1, D]
+            uncondition = uncondition.expand(B, cognition_features.shape[1], -1) #[B, 1, D]
             # uncondition = uncondition.repeat(1,16,1) # only use in V1
             z = torch.cat([cognition_features, uncondition], 0)
             cfg_scale = cfg_scale

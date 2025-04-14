@@ -55,7 +55,7 @@ class ActionModel(nn.Module):
                                         learn_sigma = learn_sigma, 
                                         future_action_window_size = future_action_window_size, 
                                         past_action_window_size = past_action_window_size,
-                                        condition_token_len=1,
+                                        condition_token_len=self.condition_token_len,
                                         )
 
     # Given condition z and ground truth token x, compute loss

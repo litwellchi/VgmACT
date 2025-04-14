@@ -262,8 +262,9 @@ class DiT(nn.Module):
         x = self.x_embedder(x)                              # (N, T, D)
         t = self.t_embedder(t)                              # (N, D)
         z = self.z_embedder(z, self.training)               # (N, 1, D)
-        c = t.unsqueeze(1) + z                              # (N, 1, D)
+        c = t.unsqueeze(1).repeat(1,self.condition_token_len,1) + z                        # (N, 1, D)
         x = torch.cat((c, x), dim=1)                        # (N, T+1, D)
+        # import pdb; pdb.set_trace()
         x = x + self.positional_embedding                   # (N, T+1, D)
         for block in self.blocks:
             x = block(x)                                    # (N, T+1, D)
