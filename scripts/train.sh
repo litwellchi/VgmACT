@@ -24,7 +24,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env
   --run_id  ${run_id}  \
   --repeated_diffusion_steps 8 \
   --future_action_window_size 15 \
-  --action_model_type DiT-B \
+  --action_model_type DiT-S \
   --wandb_project "CogACT-rt1-pretrain-2tasks" \
   --wandb_entity 'litwellchi' \
   --is_resume False \

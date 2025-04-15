@@ -45,6 +45,49 @@ overwatch = initialize_overwatch(__name__)
 IGNORE_INDEX = -100
 
 
+class ModalityCompressor(nn.Module):
+    def __init__(self, input_dim, output_dim, method='mean'):
+        super().__init__()
+        self.method = method
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+
+        # 投影器：D_i → D
+        self.projector = nn.Linear(input_dim, output_dim)
+
+        # token 压缩方式
+        if method == 'attention':
+            self.query = nn.Parameter(torch.randn(1, 1, input_dim))
+            self.attn = nn.MultiheadAttention(embed_dim=input_dim, num_heads=4, batch_first=True)
+        elif method == 'mlp':
+            self.pool = nn.AdaptiveAvgPool1d(1)
+            self.mlp = nn.Sequential(
+                nn.Linear(input_dim, input_dim),
+                nn.ReLU(),
+                nn.Linear(input_dim, input_dim)
+            )
+        else:
+            self.pool = lambda x: x.mean(dim=1, keepdim=True)  # mean pooling
+
+    def forward(self, x):
+        """
+        x: (B, T_i, D_i)
+        return: (B, 1, D)
+        """
+        if self.method == 'attention':
+            B = x.size(0)
+            q = self.query.expand(B, -1, -1)          # (B, 1, D_i)
+            pooled, _ = self.attn(q, x, x)            # (B, 1, D_i)
+        elif self.method == 'mlp':
+            x = x.transpose(1, 2)                     # (B, D_i, T_i)
+            pooled = self.pool(x).squeeze(-1)         # (B, D_i)
+            pooled = self.mlp(pooled).unsqueeze(1)    # (B, 1, D_i)
+        else:
+            pooled = self.pool(x)                     # (B, 1, D_i)
+
+        return self.projector(pooled)                 # (B, 1, D)
+
+
 class VGM(nn.Module):
     def __init__(self,
                  config_yaml: str,
@@ -131,18 +174,8 @@ class VGM(nn.Module):
             act_layer=approx_gelu, 
             drop=0)
         
-        self.img_projection = Mlp(in_features=1024,
-            hidden_features=int(1024),
-            out_features=self.proj_dim, 
-            act_layer=approx_gelu, 
-            drop=0)
-
-        self.lang_projection = Mlp(in_features=1024,
-            hidden_features=int(1024),
-            out_features=self.proj_dim, 
-            act_layer=approx_gelu, 
-            drop=0)
-
+        self.image_compressor = ModalityCompressor(input_dim=1024, output_dim=self.proj_dim, method='mlp')
+        self.lang_compressor  = ModalityCompressor(input_dim=1024, output_dim=self.proj_dim, method='mlp')
 
     def set_trainable_param(self, use_lora=False):
         # 冻结所有参数
@@ -154,6 +187,10 @@ class VGM(nn.Module):
             param.requires_grad = True
 
         for param in self.projection.parameters():
+            param.requires_grad = True
+        for param in self.img_projection.parameters():
+            param.requires_grad = True
+        for param in self.lang_projection.parameters():
             param.requires_grad = True
         
         self._init_unet_lora(use_lora=use_lora)
@@ -295,8 +332,9 @@ class VGM(nn.Module):
             x_noisy = self.vgm.q_sample(x_start=x_start, t=t_vid, noise=noise)
             x_noisy = x_start * cond_mask + (1. - cond_mask) * x_noisy
         
-        img_cognition_features = self.img_projection(img_emb) # torch.Size([32, 64, 1024]) > B 64 D 
-        cond_cognition_features = self.lang_projection(cond_emb) # B 64 D
+        img_cognition_features = self.image_compressor(img_emb) # torch.Size([32, 64, 1024]) > B 1 D 
+        # cond_cognition_features = self.lang_compressor(cond_emb) # B 1 D
+        cond_cognition_features =  torch.zeros_like(img_cognition_features)
         if torch.rand(1).item() < self.mask_video_prob:
             video_features = torch.zeros_like(cond_cognition_features)[:,:1,:]  # Mask the video feature by setting it to zero
             cognition_features = torch.cat([video_features, img_cognition_features, cond_cognition_features], dim=1)  # B 3 D
@@ -341,7 +379,7 @@ class VgmACT(nn.Module):
                                             in_channels = action_dim, 
                                             future_action_window_size = future_action_window_size, 
                                             past_action_window_size = past_action_window_size,
-                                            condition_token_len=64+77+1) # img+lang+video
+                                            condition_token_len=1+1+1) # img+lang+video
         self.vgm = vgm
         self.future_action_window_size = future_action_window_size
         self.past_action_window_size = past_action_window_size
@@ -427,7 +465,7 @@ class VgmACT(nn.Module):
         # 2️⃣ 定义 `projection` 的 wrapping policy
         projection_fsdp_wrapping_policy = partial(
             _module_wrap_policy,
-            module_classes={type(self.vgm.projection)},  # 确保正确获取类型
+            module_classes={type(self.vgm.projection),type(self.vgm.image_compressor),type(self.vgm.lang_compressor)},  # 确保正确获取类型
         )
 
         # 3️⃣ 定义 `prismatic` 相关模块的 wrapping policy
@@ -560,7 +598,7 @@ class VgmACT(nn.Module):
         # Setup classifier-free guidance:
         if using_cfg:
             noise = torch.cat([noise, noise], 0)
-            uncondition = self.action_model.net.z_embedder.uncondition
+            uncondition = self.action_model.net.z_embedder_video.uncondition
             uncondition = uncondition.unsqueeze(0)  #[1, D]
             uncondition = uncondition.expand(B, cognition_features.shape[1], -1) #[B, 1, D]
             # uncondition = uncondition.repeat(1,16,1) # only use in V1

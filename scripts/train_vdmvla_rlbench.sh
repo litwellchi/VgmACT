@@ -1,5 +1,5 @@
-num_cards=6
-bsz_cards=16
+num_cards=8
+bsz_cards=64
 time=$(date +%Y%m%d_%H%M%S)
 run_id=V25_DiTS_allcondition_freeze_reuseAct_128vgm4f_rlbench10_${time}
 mkdir ./${run_id}--image_aug
@@ -9,7 +9,7 @@ export HF_HOME="/aifs4su/mmcode/worldm/.cache/huggingface"
 export TFDS_DATA_DIR="/aifs4su/mmcode/worldm/open_x_embodiment/rlbench/dataset"
 
 
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5 /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/bin/torchrun --standalone --nnodes 1 --nproc-per-node $num_cards scripts/train_vgmvla.py \
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/bin/torchrun --standalone --nnodes 1 --nproc-per-node $num_cards scripts/train_vgmvla.py \
   --vla.type prism-dinosiglip-224px+oxe+diffusion \
   --vla.data_mix custom_finetuning \
   --vla.expected_world_size $num_cards \
@@ -19,7 +19,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5 /aifs4su/mmcode/videogen/anaconda3/envs/simpler
   --run_root_dir "/aifs4su/mmcode/worldm/videoact/VgmACT" \
   --data_root_dir "/aifs4su/mmcode/worldm/open_x_embodiment/rlbench/dataset" \
   --image_aug True \
-  --save_interval 3000 \
+  --save_interval 1000 \
   --run_id ${run_id} \
   --repeated_diffusion_steps 8 \
   --future_action_window_size 15 \
@@ -29,5 +29,5 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5 /aifs4su/mmcode/videogen/anaconda3/envs/simpler
   --wandb_entity 'litwellchi' \
   --is_resume False \
   --vgm_param_mode 'freeze' \
-  --pretrain_action_model '/aifs4su/mmcode/worldm/videoact/CogACT/CogACT-Small/checkpoints/CogACT-Small.pt' \
-  &>> ./${run_id}--image_aug/train.log &
+  --pretrain_action_model '/aifs4su/mmcode/worldm/videoact/CogACT/CogACT-Small/checkpoints/CogACT-Small.pt' 
+  # &>> ./${run_id}--image_aug/train.log &

@@ -1,5 +1,5 @@
 num_cards=8
-bsz_cards=48
+bsz_cards=36
 time=$(date +%Y%m%d_%H%M%S)
 run_id=V25_DiTS_freeze_reuseAct_128vgm4f_rt1_${time}
 mkdir ./${run_id}--image_aug
