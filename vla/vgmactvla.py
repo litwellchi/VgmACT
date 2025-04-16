@@ -564,6 +564,8 @@ class VgmACT(nn.Module):
         cfg_scale: float = 1.5, 
         use_ddim: bool = False,
         num_ddim_steps: int = 5,
+        dual_system: bool = False,
+        dual_system_video: list = None,
         **kwargs: str
     ) -> np.ndarray:
         """

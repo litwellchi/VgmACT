@@ -80,6 +80,7 @@ class TrainConfig:
     image_aug: bool = False                                         # Whether to enable image augmentations
     seed: int = 42                                                  # Random seed (for reproducibility)
     vgm_param_mode: str = "lora"                                    # vgm paramater groups
+    full_ckpt: str= None
 
     # HF Hub Credentials (for any gated models)
     hf_token: Union[str, Path] = Path(".hf_token")                  # Environment variable or Path to HF Token
@@ -181,6 +182,7 @@ def train(cfg: TrainConfig) -> None:
                             use_ema=cfg.use_ema,
                             vgm_param_mode=cfg.vgm_param_mode,
                             pretrain_action_model=cfg.pretrain_action_model,
+                            full_ckpt=cfg.full_ckpt
                             )
         else:
             vla = load_vla(cfg.pretrained_checkpoint, 

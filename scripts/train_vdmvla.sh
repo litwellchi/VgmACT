@@ -1,5 +1,5 @@
 num_cards=8
-bsz_cards=36
+bsz_cards=48
 time=$(date +%Y%m%d_%H%M%S)
 run_id=V25_DiTS_freeze_reuseAct_128vgm4f_rt1_${time}
 mkdir ./${run_id}--image_aug
@@ -27,5 +27,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/sim
   --wandb_entity 'litwellchi' \
   --is_resume False \
   --vgm_param_mode 'freeze' \
-  --pretrain_action_model '/aifs4su/mmcode/worldm/videoact/CogACT/CogACT-Small/checkpoints/CogACT-Small.pt' \
-  &>> ./${run_id}--image_aug/train.log &
+  --full_ckpt '/aifs4su/mmcode/worldm/videoact/VgmACT/V25_DiTS_freeze_reuseAct_128vgm4f_rt1_20250415_141208--image_aug/checkpoints/step-015000-epoch-28-loss=0.0710.pt' 
+  # --pretrain_action_model '/aifs4su/mmcode/worldm/videoact/CogACT/CogACT-Small/checkpoints/CogACT-Small.pt' \
+
+  # &>> ./${run_id}--image_aug/train.log &

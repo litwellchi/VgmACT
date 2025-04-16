@@ -243,25 +243,6 @@ class DiT(nn.Module):
         nn.init.constant_(self.final_layer.linear.weight, 0)
         nn.init.constant_(self.final_layer.linear.bias, 0)
 
-    # def forward(self, x, t, z):
-    #     """
-    #     Forward pass of DiT. In video prediction model
-    #     history: (N, H, D) tensor of action history # not used now
-    #     x: (N, T, D) tensor of predicting action inputs
-    #     t: (N,) tensor of diffusion timesteps
-    #     z: (N, 1, D) tensor of conditions
-    #     """
-    #     pred_token_len = z.shape[1]
-    #     x = self.x_embedder(x)                              # (N, T, D)
-    #     t = self.t_embedder(t)                              # (N, D)
-    #     z = self.z_embedder(z, self.training)               # (N, T, D)
-    #     c = t.unsqueeze(1).repeat(1,pred_token_len,1) + z       # (N, T, D)
-    #     x = torch.cat((c, x), dim=1)                        # (N, T+T, D)
-    #     x = x + self.positional_embedding                   # (N, T+T, D)
-    #     for block in self.blocks:
-    #         x = block(x)                                    # (N, T+T, D)
-    #     x = self.final_layer(x)                             # (N, T+T, out_channels)
-    #     return x[:, pred_token_len:, :]     # (N, T, C)
     def forward(self, x, t, z):
         """
         Forward pass of DiT.
