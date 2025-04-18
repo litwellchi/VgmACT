@@ -1,4 +1,4 @@
-num_cards=8
+num_cards=6
 bsz_cards=48
 time=$(date +%Y%m%d_%H%M%S)
 run_id=V25_DiTS_freeze_reuseAct_128vgm4f_rt1_${time}
@@ -7,7 +7,7 @@ mkdir ./${run_id}--image_aug
 export WANDB_API_KEY="231c840bf4c83c49cc2241bcce066cb7b75967b2"
 export HF_HOME="/aifs4su/mmcode/worldm/.cache/huggingface"
 
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/bin/torchrun --standalone --nnodes 1 --nproc-per-node $num_cards scripts/train_vgmvla.py \
+CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/bin/torchrun --standalone --nnodes 1 --nproc-per-node $num_cards scripts/train_vgmvla.py \
   --vla.type prism-dinosiglip-224px+oxe+diffusion \
   --vla.data_mix fractal20220817_data \
   --vla.expected_world_size $num_cards \
@@ -27,7 +27,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/sim
   --wandb_entity 'litwellchi' \
   --is_resume False \
   --vgm_param_mode 'freeze' \
-  --full_ckpt '/aifs4su/mmcode/worldm/videoact/VgmACT/V25_DiTS_freeze_reuseAct_128vgm4f_rt1_20250415_141208--image_aug/checkpoints/step-015000-epoch-28-loss=0.0710.pt' 
+  --full_ckpt '/aifs4su/mmcode/worldm/videoact/VgmACT/V25_DiTS_freeze_reuseAct_128vgm4f_rt1_20250417_012203--image_aug/checkpoints/step-030000-epoch-56-loss=0.0254.pt' 
   # --pretrain_action_model '/aifs4su/mmcode/worldm/videoact/CogACT/CogACT-Small/checkpoints/CogACT-Small.pt' \
 
   # &>> ./${run_id}--image_aug/train.log &

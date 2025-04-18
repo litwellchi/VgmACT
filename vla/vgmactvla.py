@@ -127,7 +127,7 @@ class VGM(nn.Module):
         assert os.path.exists(self.ckpt_path), "Error: checkpoint Not Found!"
         self.vgm = load_model_checkpoint(vgm, ckpt_path)
         self.init_projection(proj_dim)
-        self.all_module_keys=['projection']
+        self.all_module_keys=['projection','image_compressor','lang_compressor']
         for module_keys, _ in self.vgm.named_children():
             self.all_module_keys.append("vgm." + module_keys)
 
@@ -188,9 +188,9 @@ class VGM(nn.Module):
 
         for param in self.projection.parameters():
             param.requires_grad = True
-        for param in self.img_projection.parameters():
+        for param in self.image_compressor.parameters():
             param.requires_grad = True
-        for param in self.lang_projection.parameters():
+        for param in self.lang_compressor.parameters():
             param.requires_grad = True
         
         self._init_unet_lora(use_lora=use_lora)
@@ -333,8 +333,8 @@ class VGM(nn.Module):
             x_noisy = x_start * cond_mask + (1. - cond_mask) * x_noisy
         
         img_cognition_features = self.image_compressor(img_emb) # torch.Size([32, 64, 1024]) > B 1 D 
-        # cond_cognition_features = self.lang_compressor(cond_emb) # B 1 D
-        cond_cognition_features =  torch.zeros_like(img_cognition_features)
+        cond_cognition_features = self.lang_compressor(cond_emb) # B 1 D
+        # cond_cognition_features =  torch.zeros_like(img_cognition_features)
         if torch.rand(1).item() < self.mask_video_prob:
             video_features = torch.zeros_like(cond_cognition_features)[:,:1,:]  # Mask the video feature by setting it to zero
             cognition_features = torch.cat([video_features, img_cognition_features, cond_cognition_features], dim=1)  # B 3 D
@@ -534,8 +534,22 @@ class VgmACT(nn.Module):
                     vgmact.ema_diffusion.load_state_dict(model_state_dict["action_model"])
             else:
                 overwatch.warning("No ActionModel found in the pretrained checkpoint. Initializing a new one.")
+           
+
             vgmact.vgm.projection.load_state_dict(model_state_dict["vgm.projection"])
-            vgmact.vgm.vgm.model.load_state_dict(model_state_dict["vgm.vgm.model"])
+            try:
+                vgmact.vgm.image_compressor.load_state_dict(model_state_dict["vgm.image_compressor"])
+                vgmact.vgm.lang_compressor.load_state_dict(model_state_dict["vgm.lang_compressor"])
+                overwatch.info("Loading vgm.projection,vgm.lang_compressor,vgm.image_compressor successfully.")
+            except:
+                overwatch.warning("No vgm.lang_compressor,vgm.image_compressor found in the pretrained checkpoint. Initializing a new one.")
+
+            missing_keys_info = vgmact.vgm.vgm.model.load_state_dict(model_state_dict["vgm.vgm.model"], strict=False)
+            if not missing_keys_info.missing_keys and not missing_keys_info.unexpected_keys:
+                overwatch.info("Loading vgm.model successfully.")
+            else:
+                overwatch.warning("Loading vgm.model warning: Some missing keys, or  unexpected keys.")
+
         elif pretrain_action_model is not None:
             overwatch.info(f"Using pretrained action model from {pretrain_action_model}")
             action_model_state_dict = torch.load(pretrain_action_model, map_location="cpu")["model"]
@@ -600,10 +614,16 @@ class VgmACT(nn.Module):
         # Setup classifier-free guidance:
         if using_cfg:
             noise = torch.cat([noise, noise], 0)
-            uncondition = self.action_model.net.z_embedder_video.uncondition
-            uncondition = uncondition.unsqueeze(0)  #[1, D]
-            uncondition = uncondition.expand(B, cognition_features.shape[1], -1) #[B, 1, D]
-            # uncondition = uncondition.repeat(1,16,1) # only use in V1
+            uncondition_video = self.action_model.net.z_embedder_video.uncondition
+            uncondition_image = self.action_model.net.z_embedder_image.uncondition
+            uncondition_text = self.action_model.net.z_embedder_text.uncondition
+            uncondition_video = uncondition_video.unsqueeze(0)  #[1, D]
+            uncondition_video = uncondition_video.expand(B, 1, -1) #[B, 1, D]
+            uncondition_image = uncondition_image.unsqueeze(0)  #[1, D]
+            uncondition_image = uncondition_image.expand(B, 1, -1) #[B, 1, D]
+            uncondition_text = uncondition_text.unsqueeze(0)  #[1, D]
+            uncondition_text = uncondition_text.expand(B, 1, -1) #[B, 1, D]
+            uncondition = torch.cat([uncondition_video, uncondition_image, uncondition_text], 1)
             z = torch.cat([cognition_features, uncondition], 0)
             cfg_scale = cfg_scale
             model_kwargs = dict(z=z, cfg_scale=cfg_scale)
