@@ -1,7 +1,7 @@
 num_cards=8
-bsz_cards=48
+bsz_cards=64
 time=$(date +%Y%m%d_%H%M%S)
-run_id=0417V25_rt1pretrain_DiTS_allcondition_LoRA_128vgm4f_rlbench10_8000step+_${time}
+run_id=0417V27_rt1pretrain_DiTS_vtemperalcondi_128vgm4f_rlbench10_${time}
 mkdir ./${run_id}--image_aug
 
 export WANDB_API_KEY="231c840bf4c83c49cc2241bcce066cb7b75967b2"
@@ -29,7 +29,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/sim
   --wandb_entity 'litwellchi' \
   --is_resume False \
   --vgm_param_mode 'freeze' \
-  --full_ckpt '/aifs4su/mmcode/worldm/videoact/VgmACT/0417V25_rt1pretrain_DiTS_allcondition_freeze_128vgm4f_rlbench10_20250417_142930--image_aug/checkpoints/step-008000-epoch-1142-loss=0.0018.pt' 
+  --full_ckpt '/aifs4su/mmcode/worldm/videoact/VgmACT/V25_DiTS_freeze_reuseAct_128vgm4f_rt1_20250418_195852--image_aug/checkpoints/step-045000-epoch-84-loss=0.0403.pt' 
   # &>> ./${run_id}--image_aug/train.log &
   # --pretrain_action_model '/aifs4su/mmcode/worldm/videoact/CogACT/CogACT-Base/checkpoints/CogACT-Base.pt' \
 

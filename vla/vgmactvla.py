@@ -31,6 +31,8 @@ from action_model.action_model import ActionModel
 from action_model.models import DiT
 
 import sys 
+from vasim_model.conditional_project import ModalityCompressor, TemporalTransformerCondition
+
 # sys.path.insert(1,'/aifs4su/mmcode/worldm/RoboCrafter')
 sys.path.insert(1,'/aifs4su/mmcode/worldm/videoact/VgmACT/DynamiCrafter')
 from scripts.evaluation.inference import instantiate_from_config,load_model_checkpoint
@@ -43,49 +45,6 @@ overwatch = initialize_overwatch(__name__)
 
 # HuggingFace Default / LLaMa-2 IGNORE_INDEX (for labels)
 IGNORE_INDEX = -100
-
-
-class ModalityCompressor(nn.Module):
-    def __init__(self, input_dim, output_dim, method='mean'):
-        super().__init__()
-        self.method = method
-        self.input_dim = input_dim
-        self.output_dim = output_dim
-
-        # 投影器：D_i → D
-        self.projector = nn.Linear(input_dim, output_dim)
-
-        # token 压缩方式
-        if method == 'attention':
-            self.query = nn.Parameter(torch.randn(1, 1, input_dim))
-            self.attn = nn.MultiheadAttention(embed_dim=input_dim, num_heads=4, batch_first=True)
-        elif method == 'mlp':
-            self.pool = nn.AdaptiveAvgPool1d(1)
-            self.mlp = nn.Sequential(
-                nn.Linear(input_dim, input_dim),
-                nn.ReLU(),
-                nn.Linear(input_dim, input_dim)
-            )
-        else:
-            self.pool = lambda x: x.mean(dim=1, keepdim=True)  # mean pooling
-
-    def forward(self, x):
-        """
-        x: (B, T_i, D_i)
-        return: (B, 1, D)
-        """
-        if self.method == 'attention':
-            B = x.size(0)
-            q = self.query.expand(B, -1, -1)          # (B, 1, D_i)
-            pooled, _ = self.attn(q, x, x)            # (B, 1, D_i)
-        elif self.method == 'mlp':
-            x = x.transpose(1, 2)                     # (B, D_i, T_i)
-            pooled = self.pool(x).squeeze(-1)         # (B, D_i)
-            pooled = self.mlp(pooled).unsqueeze(1)    # (B, 1, D_i)
-        else:
-            pooled = self.pool(x)                     # (B, 1, D_i)
-
-        return self.projector(pooled)                 # (B, 1, D)
 
 
 class VGM(nn.Module):
@@ -174,6 +133,12 @@ class VGM(nn.Module):
             act_layer=approx_gelu, 
             drop=0)
         
+        self.projection = TemporalTransformerCondition.from_input_shape(
+            input_shape=(c, t, h, w),  # (C, T, H, W)
+            proj_dim=self.proj_dim,               # 输出给 diffusion 的 cond 向量维度
+            target_model_size_mb=100    # 目标模型大小（可选）
+        )
+
         self.image_compressor = ModalityCompressor(input_dim=1024, output_dim=self.proj_dim, method='mlp')
         self.lang_compressor  = ModalityCompressor(input_dim=1024, output_dim=self.proj_dim, method='mlp')
 
@@ -345,8 +310,8 @@ class VGM(nn.Module):
 
         else:
             video_samples = self.vgm.apply_model(x_noisy, t_vid, cond, **kwargs) # b c t h w
-            video_features = rearrange(video_samples, 'b c t h w -> b (t c h w)')# Version1.0 is B T D, Version2.0 is B 1 D
-            video_features = self.projection(video_features).unsqueeze(1) # B 1 D
+            # video_features = rearrange(video_samples, 'b c t h w -> b (t c h w)')# Version1.0 is B T D, Version2.0 is B 1 D
+            video_features = self.projection(video_samples) # B 1 D
         # cognition_features = self.projection(video_features) # B T D
         # if use_cond_mask:
             cognition_features = torch.cat([video_features, img_cognition_features, cond_cognition_features], dim=1)  # B 3 D
@@ -536,8 +501,8 @@ class VgmACT(nn.Module):
                 overwatch.warning("No ActionModel found in the pretrained checkpoint. Initializing a new one.")
            
 
-            vgmact.vgm.projection.load_state_dict(model_state_dict["vgm.projection"])
             try:
+                vgmact.vgm.projection.load_state_dict(model_state_dict["vgm.projection"])
                 vgmact.vgm.image_compressor.load_state_dict(model_state_dict["vgm.image_compressor"])
                 vgmact.vgm.lang_compressor.load_state_dict(model_state_dict["vgm.lang_compressor"])
                 overwatch.info("Loading vgm.projection,vgm.lang_compressor,vgm.image_compressor successfully.")
