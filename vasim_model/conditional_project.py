@@ -81,12 +81,19 @@ class TemporalTransformerCondition(nn.Module):
         )
         self.temporal_transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
+        self.time_embed = nn.Sequential(
+            nn.Embedding(1000, hidden_size),  # 假设DDIM最大步数为1000
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size)
+        )
+
         # Output projection
         self.output_proj = nn.Linear(hidden_size, proj_dim)
 
-    def forward(self, video_samples):
+    def forward(self, video_samples, time_step):
         """
         video_samples: (B, C, T, H, W)
+        time_step: (B,) int tensor or scalar representing the DDIM step
         Returns: (B, 1, proj_dim)
         """
         B, C, T, H, W = video_samples.shape
@@ -99,8 +106,19 @@ class TemporalTransformerCondition(nn.Module):
         pos = self.pos_embed[:, :T, :]
         x = x + pos
 
+        # Get time embedding
+        if isinstance(time_step, int):
+            time_step = torch.tensor([time_step] * B, device=x.device)
+        elif isinstance(time_step, torch.Tensor) and time_step.dim() == 0:
+            time_step = time_step.expand(B).to(x.device)
+
+        t_embed = self.time_embed(time_step)  # (B, hidden_size)
+        t_embed = t_embed.unsqueeze(1)  # (B, 1, hidden_size)
+        x = x + t_embed  # 将时间条件加到每一帧上
+
         x = self.temporal_transformer(x)  # (B, T, hidden_size)
         x = x.mean(dim=1)  # (B, hidden_size)
+
         return self.output_proj(x).unsqueeze(1)  # (B, 1, proj_dim)
 
     @classmethod
@@ -133,3 +151,65 @@ class TemporalTransformerCondition(nn.Module):
             num_heads=num_heads,
             num_layers=num_layers
         )
+    
+
+class VideoTimeStepScheduler:
+    def __init__(
+        self,
+        total_ddpm_steps: int = 1000,
+        ddim_steps_list: list = [5, 10, 50],
+        prefer_late_steps: bool = True,
+        device: torch.device = torch.device("cuda"),
+    ):
+        """
+        Args:
+            total_ddpm_steps: 总共 diffusion 步数（通常是1000）
+            ddim_steps_list: 希望支持的推理 DDIM 步数（训练时用这些的时间步）
+            prefer_late_steps: 是否偏向后期时间步（更稳定、噪声小）
+            device: 所有 t_vid 的生成设备
+        """
+        self.total_ddpm_steps = total_ddpm_steps
+        self.ddim_steps_list = ddim_steps_list
+        self.device = device
+
+        # 构造所有 candidate 时间步
+        self.candidate_ts = self.build_candidate_timestep_set()
+        
+        # 构造采样分布
+        self.prefer_late_steps = prefer_late_steps
+        self.probs = self.build_sampling_weights()
+
+    def build_candidate_timestep_set(self):
+        all_ts = []
+        for steps in self.ddim_steps_list:
+            ts = torch.linspace(0, self.total_ddpm_steps - 1, steps=steps).long()
+            all_ts.append(ts)
+        candidate_ts = torch.cat(all_ts).unique()
+        return candidate_ts
+
+    def build_sampling_weights(self):
+        if not self.prefer_late_steps:
+            return torch.ones(len(self.candidate_ts)) / len(self.candidate_ts)
+        else:
+            # 权重偏向后期时间步
+            weights = torch.linspace(0.2, 1.0, steps=len(self.candidate_ts))
+            return weights / weights.sum()
+
+    def sample_train_timestep(self, batch_size: int):
+        """
+        训练时采样时间步
+        """
+        sampled_indices = torch.multinomial(self.probs, batch_size, replacement=True)
+        return self.candidate_ts[sampled_indices].to(self.device)
+
+    def get_ddim_schedule(self, ddim_steps: int):
+        """
+        推理时返回一个固定的时间步 schedule（例如 DDIM=10）
+        """
+        return torch.linspace(0, self.total_ddpm_steps - 1, steps=ddim_steps).long().to(self.device)
+
+    def get_infer_timestep(self, batch_size: int, t_value: int):
+        """
+        推理时固定某个时间步
+        """
+        return torch.full((batch_size,), t_value, device=self.device, dtype=torch.long)

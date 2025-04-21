@@ -203,7 +203,7 @@ class VgmACTTrainingStrategy(ABC):
                     ):
                         # TODO
                         
-                        loss, output = self.vlm(
+                        loss, output, contrastive_loss = self.vlm(
                             input_ids=batch["input_ids"],
                             attention_mask=batch["attention_mask"],
                             pixel_values=batch["pixel_values"],
@@ -215,7 +215,8 @@ class VgmACTTrainingStrategy(ABC):
 
                     # Commit Loss (Prior to Gradient Accumulation Normalization)
                     metrics.commit(loss=loss)
-                    normalized_loss = loss / self.grad_accumulation_steps
+                    metrics.commit(contrastive_loss=contrastive_loss)
+                    normalized_loss = (loss+contrastive_loss) / self.grad_accumulation_steps
                     normalized_loss.backward()
 
                     # Step =>> Only if Done w/ Gradient Accumulation
@@ -300,7 +301,7 @@ class VgmACTTrainingStrategy(ABC):
                     "cuda", dtype=self.mixed_precision_dtype, enabled=self.enable_mixed_precision_training
                 ):
                     if action_model:
-                        loss, output = self.vlm(
+                        loss, output, contrastive_loss = self.vlm(
                             input_ids=batch["input_ids"],
                             attention_mask=batch["attention_mask"],
                             actions=batch["actions"],
@@ -323,8 +324,9 @@ class VgmACTTrainingStrategy(ABC):
 
                 # Commit Loss =>> Backward!
                 metrics.commit(loss=loss)
+                metrics.commit(contrastive_loss=contrastive_loss)
                 
-                normalized_loss = loss / self.grad_accumulation_steps
+                normalized_loss = (loss+contrastive_loss) / self.grad_accumulation_steps
                 normalized_loss.backward()
 
                 # === Gradient Step ===

@@ -29,8 +29,8 @@ from prismatic.util.nn_utils import FusedMLPProjector, LinearProjector, MLPProje
 
 from action_model.action_model import ActionModel
 from action_model.models import DiT
-import vasim_model
-from vasim_model.conditional_project import ModalityCompressor, TemporalTransformerCondition
+from vasim_model.cvap import ContrastiveModel
+from vasim_model.conditional_project import ModalityCompressor, TemporalTransformerCondition, VideoTimeStepScheduler
 
 import sys 
 
@@ -56,7 +56,9 @@ class VGM(nn.Module):
                  proj_dim: int = 4096,
                  fake_ddpm_step=900,
                  mode='fix',
-                 mask_video_prob = 0.2):
+                 mask_video_prob = 0.2,
+                 load_concate_frame=True,
+                 use_vgm_prob = 0.5):
         super().__init__()
         from omegaconf import OmegaConf
         import sys 
@@ -101,6 +103,16 @@ class VGM(nn.Module):
             vgm.embedder.model.logit_scale = nn.Parameter(
                 vgm.embedder.model.logit_scale.view(1)
             )
+
+        self.scheduler = VideoTimeStepScheduler(
+            total_ddpm_steps=1000,
+            ddim_steps_list=[5, 10, 50], # ususally video generation ddim step is 5,10,or50
+            prefer_late_steps=True,
+            device=torch.device("cuda")
+        )
+
+        self.load_concate_frame=load_concate_frame
+        self.use_vgm_prob = use_vgm_prob
 
         if mode=='freeze':
             self.vgm.eval()
@@ -177,10 +189,13 @@ class VGM(nn.Module):
 
 
     def get_image_transform(self):
-        video_size = (self.default_image_resolution[0]*8,self.default_image_resolution[1]*8)
+        if self.load_concate_frame:
+            video_size = (self.default_image_resolution[0]*8,self.default_image_resolution[1]*8*4) #version 2.9: load 连续四帧，包括future frame
+        else:
+            video_size = (self.default_image_resolution[0]*8,self.default_image_resolution[1]*8)
         transform = transforms.Compose([
-            transforms.Resize(min(video_size)),
-            transforms.CenterCrop(video_size),
+            transforms.Resize(video_size),
+            # transforms.CenterCrop(video_size),
             transforms.ToTensor(),
             transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))])
         return transform
@@ -210,118 +225,133 @@ class VGM(nn.Module):
         loss_simple = self.vgm.get_loss(model_output, target, mean=False).mean([1, 2, 3, 4])
         return loss_simple
 
-    def one_ddim_step_forward(self, prompts, images, n_samples=1, ddim_steps=50, ddim_eta=1., \
-                        unconditional_guidance_scale=1.0, cfg_img=None, fs=16, text_input=False, \
-                        multiple_cond_cfg=False, loop=False, interp=False, timestep_spacing='uniform', guidance_rescale=0.0, train=False, **kwargs):
+    def one_ddim_step_forward(
+        self, prompts, images, n_samples=1, ddim_steps=50, ddim_eta=1.0,
+        unconditional_guidance_scale=1.0, cfg_img=None, fs=16, text_input=False,
+        multiple_cond_cfg=False, loop=False, interp=False, timestep_spacing='uniform',
+        guidance_rescale=0.0, train=False, fix_video_timesteps=None, **kwargs
+    ):
         """
-        model forward一次 ，取出一次forward的feature
-        noise_shape = [args.bs, channels, n_frames, h, w]
-        image [b,c,h,w] 
-        video [b,c,t,h,w] 
-        return:
-            cognition_features: [B, T, D]
+        Forward pass for one DDIM step. Extracts cognitive features.
 
+        Args:
+            prompts: List of text prompts.
+            images: List of images or video frames.
+            train (bool): Whether in training mode.
+
+        Returns:
+            cognition_features: Tensor of shape [B, T, D]
+            video_loss (optional): Only during training
         """
+        # === Setup ===
         device = self.vgm.model.diffusion_model.out[2].weight.device
-        images = torch.stack(images, dim=0).to(device)
+        images = torch.stack(images, dim=0).to(device)  # [B, C, H, W]
+        batch_size, c, h, w = images.shape
+        t = 4  # temporal length
+        fs = torch.tensor([self.video_length] * batch_size, dtype=torch.long, device=device)
+        kwargs.update({"fs": fs})
 
-
-        batch_size = images.shape[0]
-        fs = self.video_length
-        fs = torch.tensor([fs] * batch_size, dtype=torch.long, device=device)
-        kwargs.update({"fs": fs.long()})
-        # print(images.shape)
-        if len(images.shape)==5: # video
-            videos = images
-            images = images[:,:,0,:,:]
+        # === Handle video format ===
+        if images.ndim == 4:  # [B, C, H, W]
+            if images.shape[3] / images.shape[2] == t: # video b c h w
+                videos = images.view(batch_size, c, h, t, h).permute(0, 1, 3, 2, 4)  # [B, C, T, H, W]
+            else:
+                videos = images.unsqueeze(2)  # -> [B, C, 1, H, W]
+                videos = repeat(videos, 'b c t h w -> b c (repeat t) h w', repeat=self.video_length)
+            img = images
         else:
-            videos = images.unsqueeze(2)#bcthw #TODO
-            videos = repeat(videos, 'b c t h w -> b c (repeat t) h w', repeat=self.video_length)
-            
-        # print(videos.shape)
+            raise ValueError("Expecting images of shape [B, C, H, W]")
+
+        # === Text and Image Embeddings ===
         if not text_input:
-            prompts = [""]*batch_size
-        img = videos[:,:,0] #bchw
-        img_emb = self.vgm.embedder(img) ## blc
-        img_emb = self.vgm.image_proj_model(img_emb).detach().clone()
-        cond_emb = self.vgm.get_learned_conditioning(prompts).detach().clone()
-        cond = {"c_crossattn": [torch.cat([cond_emb,img_emb], dim=1)]}
+            prompts = [""] * batch_size
+        cond_emb = self.vgm.get_learned_conditioning(prompts).detach().clone()  # [B, L, D]
+        img_emb = self.vgm.image_proj_model(self.vgm.embedder(img)).detach().clone()
+        cond = {"c_crossattn": [torch.cat([cond_emb, img_emb], dim=1)]}
+
+        # === Hybrid Conditioning ===
         if self.vgm.model.conditioning_key == 'hybrid':
             b, c, t, h, w = videos.shape
             x = rearrange(videos, 'b c t h w -> (b t) c h w')
             z = self.vgm.encode_first_stage(x)
             z = rearrange(z, '(b t) c h w -> b c t h w', b=b, t=t)
+
             if loop or interp:
                 img_cat_cond = torch.zeros_like(z)
                 img_cat_cond[:,:,0,:,:] = z[:,:,0,:,:]
                 img_cat_cond[:,:,-1,:,:] = z[:,:,-1,:,:]
             else:
                 img_cat_cond = z[:,:,:1,:,:].detach().clone()
-                img_cat_cond = repeat(img_cat_cond, 'b c t h w -> b c (repeat t) h w', repeat=z.shape[2])
-            cond["c_concat"] = [img_cat_cond] # b c 1 h w
-        
+                img_cat_cond = repeat(img_cat_cond, 'b c t h w -> b c (repeat t) h w', repeat=t)
+            cond["c_concat"] = [img_cat_cond]
+
+        # === Unconditional Guidance ===
         if unconditional_guidance_scale != 1.0:
             if self.vgm.uncond_type == "empty_seq":
-                prompts = batch_size * [""]
-                uc_emb = self.vgm.get_learned_conditioning(prompts)
+                uc_emb = self.vgm.get_learned_conditioning([""] * batch_size)
             elif self.vgm.uncond_type == "zero_embed":
                 uc_emb = torch.zeros_like(cond_emb)
-            uc_img_emb = self.vgm.embedder(torch.zeros_like(img)) ## b l c
-            uc_img_emb = self.vgm.image_proj_model(uc_img_emb)
-            uc = {"c_crossattn": [torch.cat([uc_emb,uc_img_emb],dim=1)]}
+            else:
+                raise ValueError(f"Unsupported uncond_type: {self.vgm.uncond_type}")
+
+            uc_img_emb = self.vgm.image_proj_model(
+                self.vgm.embedder(torch.zeros_like(img))
+            )
+            uc = {"c_crossattn": [torch.cat([uc_emb, uc_img_emb], dim=1)]}
             if self.vgm.model.conditioning_key == 'hybrid':
                 uc["c_concat"] = [img_cat_cond]
         else:
             uc = None
 
-        ## we need one more unconditioning image=yes, text=""
+        # === Optional Secondary Unconditional Condition ===
         if multiple_cond_cfg and cfg_img != 1.0:
-            uc_2 = {"c_crossattn": [torch.cat([uc_emb,img_emb],dim=1)]}
+            uc_2 = {"c_crossattn": [torch.cat([uc_emb, img_emb], dim=1)]}
             if self.vgm.model.conditioning_key == 'hybrid':
                 uc_2["c_concat"] = [img_cat_cond]
             kwargs.update({"unconditional_conditioning_img_nonetext": uc_2})
         else:
             kwargs.update({"unconditional_conditioning_img_nonetext": None})
 
-        
-        
+        # === Sample Noise and Time Step ===
         x_start = z.detach().clone()
         noise = torch.randn_like(x_start)
-        fix_video_timesteps=True
-        if fix_video_timesteps==True:
-            t_vid = torch.randint(self.fake_ddpm_step, self.fake_ddpm_step+1,(x_start.shape[0],), device=device).long()
-        
+        t_vid = self.scheduler.sample_train_timestep(batch_size=x_start.shape[0])
+        x_noisy = self.vgm.q_sample(x_start=x_start, t=t_vid, noise=noise)
 
-        # x_noisy = self.vgm.q_sample(x_start=x_start, t=t_vid, noise=noise)
+        # === Apply Conditional Mask ===
         cond_mask = self.create_time_varying_mask(z.shape)
-        if cond_mask is not None:
-            x_noisy = self.vgm.q_sample(x_start=x_start, t=t_vid, noise=noise)
+        if cond_mask is not None and not train:
             x_noisy = x_start * cond_mask + (1. - cond_mask) * x_noisy
-        
-        img_cognition_features = self.image_compressor(img_emb) # torch.Size([32, 64, 1024]) > B 1 D 
-        cond_cognition_features = self.lang_compressor(cond_emb) # B 1 D
-        # cond_cognition_features =  torch.zeros_like(img_cognition_features)
-        if torch.rand(1).item() < self.mask_video_prob:
-            video_features = torch.zeros_like(cond_cognition_features)[:,:1,:]  # Mask the video feature by setting it to zero
-            cognition_features = torch.cat([video_features, img_cognition_features, cond_cognition_features], dim=1)  # B 3 D
-            
-            if train:
-                video_loss = 0
-                return cognition_features, video_loss        
 
+        # === Cognition Features ===
+        img_cognition_features = self.image_compressor(img_emb)            # [B, 1, D]
+        cond_cognition_features = self.lang_compressor(cond_emb)          # [B, 1, D]
+
+        # === Video Feature Masking/Projection ===
+        # only Masking when training
+        if train and torch.rand(1).item() < self.mask_video_prob:
+            video_features = torch.zeros_like(cond_cognition_features)    # [B, 1, D]
+            cognition_features = torch.cat([video_features, img_cognition_features, cond_cognition_features], dim=1)
+            return (cognition_features, 0, x_start) if train else cognition_features
+
+        # === Full Forward or Skip Training ===
+        # only skil when training
+        use_vgm = True if not train else (torch.rand(1).item() < self.use_vgm_prob)
+        if use_vgm:
+            video_samples = self.vgm.apply_model(x_noisy, t_vid, cond, **kwargs)
+            x0_hat_target = self.vgm.predict_start_from_z_and_v(x_noisy, t_vid, video_samples)
         else:
-            video_samples = self.vgm.apply_model(x_noisy, t_vid, cond, **kwargs) # b c t h w
-            # video_features = rearrange(video_samples, 'b c t h w -> b (t c h w)')# Version1.0 is B T D, Version2.0 is B 1 D
-            video_features = self.projection(video_samples) # B 1 D
-        # cognition_features = self.projection(video_features) # B T D
-        # if use_cond_mask:
-            cognition_features = torch.cat([video_features, img_cognition_features, cond_cognition_features], dim=1)  # B 3 D
-            
-            if train:
-                video_loss = self.get_video_loss(x_start,video_samples,noise,t_vid)
-                return cognition_features, video_loss
-            
-        
+            x0_hat_target = x_noisy
+
+        # === Final Cognition Feature Assembly ===
+        video_features = self.projection(x0_hat_target,t_vid)
+        cognition_features = torch.cat([video_features, img_cognition_features, cond_cognition_features], dim=1)
+
+        # === Compute Loss (if Training) ===
+        if train:
+            video_loss = self.get_video_loss(x_start, x0_hat_target, noise, t_vid)
+            return cognition_features, video_loss, x0_hat_target
+
         return cognition_features
 
 
@@ -350,10 +380,21 @@ class VgmACT(nn.Module):
         self.future_action_window_size = future_action_window_size
         self.past_action_window_size = past_action_window_size
         self.use_ema = use_ema
+
+        h,w = self.vgm.model_config['params']['image_size']
+        c = self.vgm.model_config['params']['channels']
+        t = self.vgm.model_config['params']['unet_config']['params']['temporal_length']
+
+        self.cvap = ContrastiveModel(
+            image_channels=c,
+            pose_dim=action_dim,
+            embedding_dim=128,
+        )
+
         if self.use_ema:
             self.ema_diffusion = deepcopy(self.action_model)
             self.ema_diffusion.requires_grad_(False)
-            self.all_module_keys = ['action_model', 'ema_diffusion']
+            self.all_module_keys = ['action_model', 'ema_diffusion','cvap']
         else:
             self.all_module_keys = ['action_model']
 
@@ -403,7 +444,7 @@ class VgmACT(nn.Module):
         #     f"# Parameters after re-set (in millions): {num_params / 10**6:.3f} Total, {num_trainable_params / 10**6:.3f} Trainable"
         # )
 
-        cognition_features, video_loss = self.vgm.one_ddim_step_forward(prompts=lang,images=pixel_values,train=True) # B, 1, D
+        cognition_features, video_loss, x0_hat = self.vgm.one_ddim_step_forward(prompts=lang,images=pixel_values,train=True) # B, 1, D
 
         actions_history = actions[:,0:self.past_action_window_size,:]
         actions_future = actions[:, -(self.future_action_window_size+1):, :]
@@ -415,9 +456,21 @@ class VgmACT(nn.Module):
 
         # Action model forward and compute loss
         act_loss = self.action_model.loss(actions_repeated, cognition_features_repeated)
+
+
+        # === 5. CVAP contrastive loss ===
+        # Flatten for contrastive model
+        # 只计算生成的第一个关键帧和第一个action应该是对应的
+        x0_hat_flat = x0_hat[:,1,:,:,:].detach()  # [B, C, H, W] if input is [B, T, C, H, W]
+        pose_flat = actions_future[:, 0, :].detach()  # use first future action as anchor [B, D]
+
+        z_img, z_pose = self.cvap(x0_hat_flat, pose_flat)
+        contrastive_loss = self.cvap.nt_xent_loss(z_img, z_pose)
+
+
         # loss = act_loss + video_loss.mean()
-        loss = act_loss
-        return loss,  cognition_features
+        loss = act_loss 
+        return loss,  cognition_features, contrastive_loss
 
     def get_fsdp_wrapping_policy(self) -> Callable:
         """Return an FSDP wrapping policy that applies to `vgm.model`, `vgm.projection`, and specific prismatic modules."""
@@ -437,7 +490,7 @@ class VgmACT(nn.Module):
         # 3️⃣ 定义 `prismatic` 相关模块的 wrapping policy
         prismatic_fsdp_wrapping_policy = partial(
             _module_wrap_policy,
-            module_classes={LinearProjector, MLPProjector, FusedMLPProjector, DiT},
+            module_classes={LinearProjector, MLPProjector, FusedMLPProjector, DiT, ContrastiveModel},
         )
 
         # 4️⃣ 合并所有 Policy，使得 FSDP 仅包裹 `vgm.model`、`projection` 和 `prismatic` 相关模块
@@ -570,7 +623,6 @@ class VgmACT(nn.Module):
         # print(pixel_values.shape)
         cognition_features = self.vgm.one_ddim_step_forward(prompts=[instruction],images=[pixel_values]) # B, 1, D]
         # print(cognition_features.shape)
-        # import pdb;pdb.set_trace()
         B = cognition_features.shape[0]
         model_dtype = next(self.action_model.net.parameters()).dtype
         # Sample random noise

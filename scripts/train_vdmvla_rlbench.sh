@@ -1,15 +1,15 @@
-num_cards=8
-bsz_cards=48
+num_cards=1
+bsz_cards=8
 time=$(date +%Y%m%d_%H%M%S)
-run_id=0419V27_DiTS_rlbenchvgm_vtemperalcondi_128vgm4f_rlbench10_${time}
+run_id=V29_DiTS_rlbenchvgm_vtemperalcondi_128vgm4f_rlbench10 #_${time}
 mkdir ./${run_id}--image_aug
 
 export WANDB_API_KEY="231c840bf4c83c49cc2241bcce066cb7b75967b2"
 export HF_HOME="/aifs4su/mmcode/worldm/.cache/huggingface"
-export TFDS_DATA_DIR="/aifs4su/mmcode/worldm/open_x_embodiment/rlbench/dataset"
+export TFDS_DATA_DIR="/aifs4su/mmcode/worldm/open_x_embodiment/rlbench/dataset/rlbench_concat_future_fixed4"
 
 
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/bin/torchrun --standalone --nnodes 1 --nproc-per-node $num_cards scripts/train_vgmvla.py \
+CUDA_VISIBLE_DEVICES=0 /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/bin/torchrun --standalone --nnodes 1 --nproc-per-node $num_cards scripts/train_vgmvla.py \
   --vla.type prism-dinosiglip-224px+oxe+diffusion \
   --vla.data_mix custom_finetuning \
   --vla.expected_world_size $num_cards \
@@ -17,7 +17,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/sim
   --vla.per_device_batch_size $bsz_cards \
   --vla.learning_rate 2e-5 \
   --run_root_dir "/aifs4su/mmcode/worldm/videoact/VgmACT" \
-  --data_root_dir "/aifs4su/mmcode/worldm/open_x_embodiment/rlbench/dataset" \
+  --data_root_dir ${TFDS_DATA_DIR} \
   --image_aug True \
   --save_interval 50000 \
   --run_id ${run_id} \

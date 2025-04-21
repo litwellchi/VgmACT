@@ -244,6 +244,7 @@ class VLAMetrics:
         self.state = {
             "loss_raw": deque(maxlen=grad_accumulation_steps),
             "loss": deque(maxlen=window_size),
+            "contrastive_loss": deque(maxlen=window_size),
             "step_time": deque(maxlen=window_size),
             "lr": [],
         }
