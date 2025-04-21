@@ -29,9 +29,10 @@ from prismatic.util.nn_utils import FusedMLPProjector, LinearProjector, MLPProje
 
 from action_model.action_model import ActionModel
 from action_model.models import DiT
+import vasim_model
+from vasim_model.conditional_project import ModalityCompressor, TemporalTransformerCondition
 
 import sys 
-from vasim_model.conditional_project import ModalityCompressor, TemporalTransformerCondition
 
 # sys.path.insert(1,'/aifs4su/mmcode/worldm/RoboCrafter')
 sys.path.insert(1,'/aifs4su/mmcode/worldm/videoact/VgmACT/DynamiCrafter')
