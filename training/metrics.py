@@ -309,6 +309,7 @@ class VLAMetrics:
         # Note :: Raw Loss is an Average over Gradient Accumulation Steps --> No Smoothing!
         loss_raw = torch.stack(list(self.state["loss_raw"])).mean().item()
         loss = torch.stack(list(self.state["loss"])).mean().item()
+        contrastive_loss = torch.stack(list(self.state["contrastive_loss"])).mean().item()
         step_time, lr = np.mean(list(self.state["step_time"])), self.state["lr"][-1]
         status = self.get_status(loss)
 
@@ -321,6 +322,7 @@ class VLAMetrics:
                 f"{prefix}/Step": self.global_step,
                 f"{prefix}/Epoch": self.epoch,
                 f"{prefix}/Loss": loss,
+                f"{prefix}/contrastive_loss": contrastive_loss,
                 f"{prefix}/Loss (Raw)": loss_raw,
                 f"{prefix}/Learning Rate": lr,
                 f"{prefix}/Step Time": step_time,
