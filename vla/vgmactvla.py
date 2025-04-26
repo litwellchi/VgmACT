@@ -30,7 +30,7 @@ from prismatic.util.nn_utils import FusedMLPProjector, LinearProjector, MLPProje
 from action_model.action_model import ActionModel
 from action_model.models import DiT
 from vasim_model.cvap import ContrastiveModel
-from vasim_model.conditional_project import ModalityCompressor, TemporalTransformerCondition, VideoTimeStepScheduler
+from vasim_model.conditional_project import ModalityCompressor, TemporalTransformerCondition, VideoTimeStepScheduler, Resampler
 
 import sys 
 
@@ -140,11 +140,6 @@ class VGM(nn.Module):
         t = self.model_config['params']['unet_config']['params']['temporal_length']
         hidden_size = h*w*c*t
         approx_gelu = lambda: nn.GELU(approximate="tanh")
-        self.projection = Mlp(in_features=hidden_size,
-            hidden_features=int(hidden_size/8),
-            out_features=self.proj_dim, 
-            act_layer=approx_gelu, 
-            drop=0)
         
         self.projection = TemporalTransformerCondition.from_input_shape(
             input_shape=(c, t, h, w),  # (C, T, H, W)
@@ -152,8 +147,16 @@ class VGM(nn.Module):
             target_model_size_mb=100    # 目标模型大小（可选）
         )
 
-        self.image_compressor = ModalityCompressor(input_dim=1024, output_dim=self.proj_dim, method='mlp')
-        self.lang_compressor  = ModalityCompressor(input_dim=1024, output_dim=self.proj_dim, method='mlp')
+        self.state_compressor = Resampler(
+                                            dim=self.proj_dim,          # latent内部处理维度
+                                            output_dim=self.proj_dim,   # 最后输出特征维度
+                                            embedding_dim=1024,         # 输入tokens的特征维度
+                                            num_queries=1,              # 压成2个token
+                                            depth=4,                    # 可以调小一点，比如4层
+                                            dim_head=64,
+                                            heads=8
+                                        )
+        # self.lang_compressor  = ModalityCompressor(input_dim=1024, output_dim=self.proj_dim, method='mlp')
 
     def set_trainable_param(self, use_lora=False):
         # 冻结所有参数
@@ -329,8 +332,7 @@ class VGM(nn.Module):
             x_noisy = x_start * cond_mask + (1. - cond_mask) * x_noisy
 
         # === Cognition Features ===
-        img_cognition_features = self.image_compressor(img_emb)            # [B, 1, D]
-        cond_cognition_features = self.lang_compressor(cond_emb)          # [B, 1, D]
+        state_cognition_features = self.state_compressor(torch.cat([cond_emb, img_emb], dim=1))           # [B, 1, D]
 
         # === Video Feature Masking/Projection ===
         # # only Masking when training
@@ -350,13 +352,13 @@ class VGM(nn.Module):
 
         # # === Final Cognition Feature Assembly ===
         # video_features = self.projection(x0_hat_target,t_vid)
-        cognition_features = torch.cat([img_cognition_features, cond_cognition_features], dim=1)
+        # cognition_features = torch.cat([img_cognition_features, cond_cognition_features], dim=1)
 
         # === Compute Loss (if Training) ===
         # if train:
             # video_loss = self.get_video_loss(x_start, x0_hat_target, noise, t_vid)
             # return cognition_features, video_loss, x0_hat_target
-
+        cognition_features = state_cognition_features
         return cognition_features
 
 
@@ -380,7 +382,7 @@ class VgmACT(nn.Module):
                                             in_channels = action_dim, 
                                             future_action_window_size = future_action_window_size, 
                                             past_action_window_size = past_action_window_size,
-                                            condition_token_len=1+1) # img+lang
+                                            ) 
         self.vgm = vgm
         self.future_action_window_size = future_action_window_size
         self.past_action_window_size = past_action_window_size
@@ -489,7 +491,7 @@ class VgmACT(nn.Module):
         # 2️⃣ 定义 `projection` 的 wrapping policy
         projection_fsdp_wrapping_policy = partial(
             _module_wrap_policy,
-            module_classes={type(self.vgm.projection),type(self.vgm.image_compressor),type(self.vgm.lang_compressor)},  # 确保正确获取类型
+            module_classes={type(self.vgm.projection),type(self.vgm.state_compressor)},  # 确保正确获取类型
         )
 
         # 3️⃣ 定义 `prismatic` 相关模块的 wrapping policy
@@ -549,10 +551,10 @@ class VgmACT(nn.Module):
          # Load ActionModel from Checkpoint
             overwatch.info(
                 f" ===== Loading [bold blue] Pretrained Weight [/] ====\n"
-                f"=>> Loading Action model and VGM from [bold]{full_ckpt}[/] with:\n"
                 )
             if "action_model" in model_state_dict:
                 vgmact.action_model.load_state_dict(model_state_dict["action_model"])
+                overwatch.info(f"=>> Loading Action from [bold]{full_ckpt}[/] successfully\n")
                 if "ema_diffusion" in model_state_dict and use_ema:
                     vgmact.ema_diffusion.load_state_dict(model_state_dict["ema_diffusion"])
                 elif use_ema:
@@ -581,6 +583,7 @@ class VgmACT(nn.Module):
             if "action_model" in action_model_state_dict:
                 try:
                     vgmact.action_model.load_state_dict(action_model_state_dict["action_model"], strict=False)
+                    overwatch.info(f"=>> Loading Action from [bold]{pretrain_action_model}[/] fully successfully\n")
                 except:
                     model_dict = vgmact.action_model.state_dict()
                     pretrained_dict = action_model_state_dict["action_model"]
