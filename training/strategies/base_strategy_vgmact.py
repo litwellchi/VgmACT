@@ -285,7 +285,7 @@ class VgmACTTrainingStrategy(ABC):
             disable=not overwatch.is_rank_zero(),
         ) as progress:
             self.vlm.train()
-
+            self.vlm.check_trainable_param()
             # Zero Gradients (just in case)
             if self.vlm.use_ema is not None and self.vlm.use_ema == True:
                 self.vlm.ema_diffusion.eval()
@@ -324,7 +324,7 @@ class VgmACTTrainingStrategy(ABC):
 
                 # Commit Loss =>> Backward!
                 metrics.commit(loss=loss)
-                metrics.commit(contrastive_loss=contrastive_loss)
+                # metrics.commit(contrastive_loss=contrastive_loss)
                 
                 normalized_loss = (loss+contrastive_loss) / self.grad_accumulation_steps
                 normalized_loss.backward()

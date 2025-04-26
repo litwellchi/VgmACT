@@ -1,0 +1,450 @@
+04/23 [02:11:06] INFO     | >> [*] CogACT-VLA Training ::    train_vgmvla.py:127
+                          Warming Up                                            
+                 INFO     | >>     |=> "Do or do not; there  train_vgmvla.py:146
+                          is no try."                                           
+04/23 [02:11:13] INFO     | >> [*] Loading Base VLM          train_vgmvla.py:162
+                          `prism-dinosiglip-224px+7b` from                      
+                          ID/Path                                               
+                 INFO     | >> [*] Loading VLA Checkpoint    train_vgmvla.py:169
+                 INFO     | >> [*] Loading from local checkpoint     load.py:237
+                          path                                                  
+                          `/aifs4su/mmcode/worldm/RoboCrafter/save_c            
+                          heckpoints/ww_training_128_4frame_v1.0_rt1            
+                          _real_4frame/checkpoints/trainstep_checkpo            
+                          ints/epoch=53-step=12000.ckpt`                        
+                 INFO     | >> [*] Found Config =>> Loading &        load.py:262
+                          Freezing with:                                        
+                                       Checkpoint Path =>>                      
+                          `/aifs4su/mmcode/worldm/RoboCrafter/save_c            
+                          heckpoints/ww_training_128_4frame_v1.0_rt1            
+                          _real_4frame/checkpoints/trainstep_checkpo            
+                          ints/epoch=53-step=12000.ckpt`                        
+                 INFO     | >> [*] Loading Video Generation Backbone load.py:269
+                          from Checkpoint                                       
+                 INFO     | >> LatentVisualDiffusion: Running in    ddpm3d.py:75
+                          v-prediction mode                                     
+04/23 [02:11:13] INFO     | >> LatentVisualDiffusion: Running in    ddpm3d.py:75
+                          v-prediction mode                                     
+04/23 [02:11:13] INFO     | >> LatentVisualDiffusion: Running in    ddpm3d.py:75
+                          v-prediction mode                                     
+04/23 [02:11:13] INFO     | >> LatentVisualDiffusion: Running in    ddpm3d.py:75
+                          v-prediction mode                                     
+04/23 [02:11:13] INFO     | >> LatentVisualDiffusion: Running in    ddpm3d.py:75
+                          v-prediction mode                                     
+04/23 [02:11:13] INFO     | >> LatentVisualDiffusion: Running in    ddpm3d.py:75
+                          v-prediction mode                                     
+04/23 [02:11:13] INFO     | >> LatentVisualDiffusion: Running in    ddpm3d.py:75
+                          v-prediction mode                                     
+04/23 [02:11:13] INFO     | >> LatentVisualDiffusion: Running in    ddpm3d.py:75
+                          v-prediction mode                                     
+AE working on z of shape (1, 4, 16, 16) = 1024 dimensions.
+AE working on z of shape (1, 4, 16, 16) = 1024 dimensions.
+AE working on z of shape (1, 4, 16, 16) = 1024 dimensions.
+AE working on z of shape (1, 4, 16, 16) = 1024 dimensions.
+AE working on z of shape (1, 4, 16, 16) = 1024 dimensions.
+AE working on z of shape (1, 4, 16, 16) = 1024 dimensions.
+AE working on z of shape (1, 4, 16, 16) = 1024 dimensions.
+AE working on z of shape (1, 4, 16, 16) = 1024 dimensions.
+04/23 [02:11:21] INFO     | >> Loaded ViT-H-14 model config.      factory.py:158
+04/23 [02:11:21] INFO     | >> Loaded ViT-H-14 model config.      factory.py:158
+04/23 [02:11:21] INFO     | >> Loaded ViT-H-14 model config.      factory.py:158
+04/23 [02:11:21] INFO     | >> Loaded ViT-H-14 model config.      factory.py:158
+04/23 [02:11:21] INFO     | >> Loaded ViT-H-14 model config.      factory.py:158
+04/23 [02:11:21] INFO     | >> Loaded ViT-H-14 model config.      factory.py:158
+04/23 [02:11:21] INFO     | >> Loaded ViT-H-14 model config.      factory.py:158
+04/23 [02:11:21] INFO     | >> Loaded ViT-H-14 model config.      factory.py:158
+04/23 [02:11:27] INFO     | >> Loading pretrained ViT-H-14        factory.py:206
+                          weights (laion2b_s32b_b79k).                          
+04/23 [02:11:27] INFO     | >> Loading pretrained ViT-H-14        factory.py:206
+                          weights (laion2b_s32b_b79k).                          
+04/23 [02:11:27] INFO     | >> Loading pretrained ViT-H-14        factory.py:206
+                          weights (laion2b_s32b_b79k).                          
+04/23 [02:11:27] INFO     | >> Loading pretrained ViT-H-14        factory.py:206
+                          weights (laion2b_s32b_b79k).                          
+04/23 [02:11:27] INFO     | >> Loading pretrained ViT-H-14        factory.py:206
+                          weights (laion2b_s32b_b79k).                          
+04/23 [02:11:27] INFO     | >> Loading pretrained ViT-H-14        factory.py:206
+                          weights (laion2b_s32b_b79k).                          
+04/23 [02:11:27] INFO     | >> Loading pretrained ViT-H-14        factory.py:206
+                          weights (laion2b_s32b_b79k).                          
+04/23 [02:11:27] INFO     | >> Loading pretrained ViT-H-14        factory.py:206
+                          weights (laion2b_s32b_b79k).                          
+04/23 [02:11:32] INFO     | >> Loaded ViT-H-14 model config.      factory.py:158
+04/23 [02:11:32] INFO     | >> Loaded ViT-H-14 model config.      factory.py:158
+04/23 [02:11:32] INFO     | >> Loaded ViT-H-14 model config.      factory.py:158
+04/23 [02:11:32] INFO     | >> Loaded ViT-H-14 model config.      factory.py:158
+04/23 [02:11:32] INFO     | >> Loaded ViT-H-14 model config.      factory.py:158
+04/23 [02:11:32] INFO     | >> Loaded ViT-H-14 model config.      factory.py:158
+04/23 [02:11:32] INFO     | >> Loaded ViT-H-14 model config.      factory.py:158
+04/23 [02:11:32] INFO     | >> Loaded ViT-H-14 model config.      factory.py:158
+04/23 [02:11:37] INFO     | >> Loading pretrained ViT-H-14        factory.py:206
+                          weights (laion2b_s32b_b79k).                          
+04/23 [02:11:37] INFO     | >> Loading pretrained ViT-H-14        factory.py:206
+                          weights (laion2b_s32b_b79k).                          
+04/23 [02:11:37] INFO     | >> Loading pretrained ViT-H-14        factory.py:206
+                          weights (laion2b_s32b_b79k).                          
+04/23 [02:11:37] INFO     | >> Loading pretrained ViT-H-14        factory.py:206
+                          weights (laion2b_s32b_b79k).                          
+04/23 [02:11:37] INFO     | >> Loading pretrained ViT-H-14        factory.py:206
+                          weights (laion2b_s32b_b79k).                          
+04/23 [02:11:37] INFO     | >> Loading pretrained ViT-H-14        factory.py:206
+                          weights (laion2b_s32b_b79k).                          
+04/23 [02:11:37] INFO     | >> Loading pretrained ViT-H-14        factory.py:206
+                          weights (laion2b_s32b_b79k).                          
+04/23 [02:11:38] INFO     | >> Loading pretrained ViT-H-14        factory.py:206
+                          weights (laion2b_s32b_b79k).                          
+>>> model checkpoint loaded.
+>>> model checkpoint loaded.
+>>> model checkpoint loaded.
+>>> model checkpoint loaded.
+>>> model checkpoint loaded.
+>>> model checkpoint loaded.
+>>> model checkpoint loaded.
+04/23 [02:11:52] INFO     | >> [*]  ===== Loading  Video        vgmactvla.py:118
+                          Generation Model  ====                                
+                          Found Config =>> Loading Video                        
+                          Generation Model config from                          
+                          /aifs4su/mmcode/worldm/RoboCrafter/sa                 
+                          ve_checkpoints/ww_training_128_4frame                 
+                          _v1.0_rt1_real_4frame/configs/model.y                 
+                          aml with:                                             
+                                       Checkpoint Path =>>                      
+                          `/aifs4su/mmcode/worldm/RoboCrafter/s                 
+                          ave_checkpoints/ww_training_128_4fram                 
+                          e_v1.0_rt1_real_4frame/checkpoints/tr                 
+                          ainstep_checkpoints/epoch=53-step=120                 
+                          00.ckpt` Running VGM backbone (if                     
+                          training) in =>> `freeze`                             
+                 INFO     | >> [*] Loading Video Generation Action   load.py:275
+                          Model from Checkpoint                                 
+04/23 [02:11:53] INFO     | >> [*] Using pretrained action      vgmactvla.py:657
+                          model from                                            
+                          /aifs4su/mmcode/worldm/videoact/CogAC                 
+                          T/CogACT-Base/checkpoints/CogACT-Base                 
+                          .pt                                                   
+>>> model checkpoint loaded.
+04/23 [02:12:18] INFO     | >> Load dataset info from        dataset_info.py:599
+                          /aifs4su/mmcode/worldm/open_x_embo                    
+                          diment/fractal20220817_data/fracta                    
+                          l20220817_data/0.1.0                                  
+04/23 [02:12:18] INFO     | >> [*] # Parameters (in          train_vgmvla.py:243
+                          millions): 2785.051 Total, 176.119                    
+                          Trainable                                             
+                 INFO     | >> [*] Creating VLA Open-X       train_vgmvla.py:247
+                          Dataset with Mixture                                  
+                          `fractal20220817_data`                                
+                 INFO     | >> Load dataset info from        dataset_info.py:599
+                          /aifs4su/mmcode/worldm/open_x_embo                    
+                          diment/fractal20220817_data/fracta                    
+                          l20220817_data/0.1.0                                  
+                 INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          all, from                                             
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+                 INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          all, from                                             
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+04/23 [02:12:18] INFO     | >> Load dataset info from        dataset_info.py:599
+                          /aifs4su/mmcode/worldm/open_x_embo                    
+                          diment/fractal20220817_data/fracta                    
+                          l20220817_data/0.1.0                                  
+04/23 [02:12:18] INFO     | >> Load dataset info from        dataset_info.py:599
+                          /aifs4su/mmcode/worldm/open_x_embo                    
+                          diment/fractal20220817_data/fracta                    
+                          l20220817_data/0.1.0                                  
+04/23 [02:12:18] INFO     | >> Load dataset info from        dataset_info.py:599
+                          /aifs4su/mmcode/worldm/open_x_embo                    
+                          diment/fractal20220817_data/fracta                    
+                          l20220817_data/0.1.0                                  
+04/23 [02:12:18] INFO     | >> Load dataset info from        dataset_info.py:599
+                          /aifs4su/mmcode/worldm/open_x_embo                    
+                          diment/fractal20220817_data/fracta                    
+                          l20220817_data/0.1.0                                  
+04/23 [02:12:18] INFO     | >> Load dataset info from        dataset_info.py:599
+                          /aifs4su/mmcode/worldm/open_x_embo                    
+                          diment/fractal20220817_data/fracta                    
+                          l20220817_data/0.1.0                                  
+                 INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          all, from                                             
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+                 INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          all, from                                             
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+                 INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          all, from                                             
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+04/23 [02:12:18] INFO     | >> Load dataset info from        dataset_info.py:599
+                          /aifs4su/mmcode/worldm/open_x_embo                    
+                          diment/fractal20220817_data/fracta                    
+                          l20220817_data/0.1.0                                  
+                 INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          all, from                                             
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+                 INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          all, from                                             
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+                 INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          all, from                                             
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+                 INFO     | >> [*] Loading existing dataset    data_utils.py:214
+                          statistics from                                       
+                          /home/tianzeyue/.cache/orca/dataset_                  
+                          statistics_9469f46d718275680e77be236                  
+                          046bc2887fd1dd8e1517e082681dd61f284d                  
+                          4ad.json.                                             
+                 INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          train, from                                           
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+04/23 [02:12:19] INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          train, from                                           
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+04/23 [02:12:19] INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          train, from                                           
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+04/23 [02:12:19] INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          train, from                                           
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+04/23 [02:12:19] INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          train, from                                           
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+04/23 [02:12:19] INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          train, from                                           
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+04/23 [02:12:19] INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          train, from                                           
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+04/23 [02:12:19] INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          train, from                                           
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+
+######################################################################################
+# Loading the following 1 datasets (incl. sampling weight):                         #
+# fractal20220817_data: ====================================================1.000000 #
+######################################################################################
+
+04/23 [02:12:19] INFO     | >> [*] Threads per Dataset: [1]       dataset.py:537
+                 INFO     | >> [*] Reads per Dataset: [1]         dataset.py:538
+                 INFO     | >> [*] Constructing datasets...       dataset.py:541
+                 INFO     | >> Load dataset info from        dataset_info.py:599
+                          /aifs4su/mmcode/worldm/open_x_embo                    
+                          diment/fractal20220817_data/fracta                    
+                          l20220817_data/0.1.0                                  
+                 INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          train, from                                           
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+
+######################################################################################
+# Loading the following 1 datasets (incl. sampling weight):                         #
+# fractal20220817_data: ====================================================1.000000 #
+######################################################################################
+
+                 INFO     | >> Load dataset info from        dataset_info.py:599
+                          /aifs4su/mmcode/worldm/open_x_embo                    
+                          diment/fractal20220817_data/fracta                    
+                          l20220817_data/0.1.0                                  
+04/23 [02:12:20] INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          train, from                                           
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+
+######################################################################################
+# Loading the following 1 datasets (incl. sampling weight):                         #
+# fractal20220817_data: ====================================================1.000000 #
+######################################################################################
+
+04/23 [02:12:20] INFO     | >> Load dataset info from        dataset_info.py:599
+                          /aifs4su/mmcode/worldm/open_x_embo                    
+                          diment/fractal20220817_data/fracta                    
+                          l20220817_data/0.1.0                                  
+
+######################################################################################
+# Loading the following 1 datasets (incl. sampling weight):                         #
+# fractal20220817_data: ====================================================1.000000 #
+######################################################################################
+
+04/23 [02:12:20] INFO     | >> Load dataset info from        dataset_info.py:599
+                          /aifs4su/mmcode/worldm/open_x_embo                    
+                          diment/fractal20220817_data/fracta                    
+                          l20220817_data/0.1.0                                  
+
+######################################################################################
+# Loading the following 1 datasets (incl. sampling weight):                         #
+# fractal20220817_data: ====================================================1.000000 #
+######################################################################################
+
+04/23 [02:12:20] INFO     | >> Load dataset info from        dataset_info.py:599
+                          /aifs4su/mmcode/worldm/open_x_embo                    
+                          diment/fractal20220817_data/fracta                    
+                          l20220817_data/0.1.0                                  
+                 INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          train, from                                           
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+                 INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          train, from                                           
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+
+######################################################################################
+# Loading the following 1 datasets (incl. sampling weight):                         #
+# fractal20220817_data: ====================================================1.000000 #
+######################################################################################
+
+04/23 [02:12:20] INFO     | >> Load dataset info from        dataset_info.py:599
+                          /aifs4su/mmcode/worldm/open_x_embo                    
+                          diment/fractal20220817_data/fracta                    
+                          l20220817_data/0.1.0                                  
+
+######################################################################################
+# Loading the following 1 datasets (incl. sampling weight):                         #
+# fractal20220817_data: ====================================================1.000000 #
+######################################################################################
+
+04/23 [02:12:20] INFO     | >> Load dataset info from        dataset_info.py:599
+                          /aifs4su/mmcode/worldm/open_x_embo                    
+                          diment/fractal20220817_data/fracta                    
+                          l20220817_data/0.1.0                                  
+                 INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          train, from                                           
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+
+######################################################################################
+# Loading the following 1 datasets (incl. sampling weight):                         #
+# fractal20220817_data: ====================================================1.000000 #
+######################################################################################
+
+04/23 [02:12:20] INFO     | >> Load dataset info from        dataset_info.py:599
+                          /aifs4su/mmcode/worldm/open_x_embo                    
+                          diment/fractal20220817_data/fracta                    
+                          l20220817_data/0.1.0                                  
+                 INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          train, from                                           
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+                 INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          train, from                                           
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+                 INFO     | >> Constructing tf.data.Dataset logging_logger.py:49
+                          fractal20220817_data for split                        
+                          train, from                                           
+                          /aifs4su/mmcode/worldm/open_x_emb                     
+                          odiment/fractal20220817_data/frac                     
+                          tal20220817_data/0.1.0                                
+04/23 [02:12:20] INFO     | >> [*] Applying frame transforms on   dataset.py:583
+                          dataset...                                            
+04/23 [02:12:21] INFO     | >> [*] Saved dataset statistics    data_utils.py:293
+                          file at path                                          
+                          /aifs4su/mmcode/worldm/videoact/VgmA                  
+                          CT/0422V27_DiTB_freeze_reuseAct_128v                  
+                          gm4f_rt1_20250423_021012--image_aug/                  
+                          dataset_statistics.json                               
+                 INFO     | >> [*] Initializing Train        train_vgmvla.py:268
+                          Strategy `fsdp-full-shard`                            
+04/23 [02:12:26] INFO     | >> [*] FSDP Full-Shard Strategy =>>  fsdp_vgm.py:291
+                          Finalized Training Setup:                             
+                                   |-> Global (Effective) Batch                 
+                          Size = 8192                                           
+                                   |-> Per-Device Batch Size =                  
+                          1024                                                  
+                                   |-> Distributed World Size =                 
+                          8                                                     
+                                   |-> Gradient Accumulation                    
+                          Steps = 1                                             
+                                                                                
+                                   |-> LLM Backbone FSDP                        
+                          Gradient Checkpointing = True                         
+                                   |-> Use FSDP Mixed Precision                 
+                          = True                                                
+                                           |-> Parameter                        
+                          Precision = torch.bfloat16                            
+                                           |-> Reduction                        
+                          Precision = torch.float32                             
+                                           |-> Buffer Precision                 
+                          = torch.float32                                       
+                                                                                
+                                   |-> Default AdamW LR = 2e-05                 
+                                   |-> AdamW Weight Decay = 0.0                 
+                                   |-> LR Scheduler Type =                      
+                          constant                                              
+                                   |-> LR Scheduler Warmup Steps                
+                          (Ratio) = 0 (0.0)                                     
+                                   |-> Dataset Size = 8192                      
+                          Examples                                              
+                                   |-> Max Steps = 10000                        
+                                                                                
+                 INFO     | >> [*] Creating Metrics with     train_vgmvla.py:293
+                          Active Trackers => `('jsonl',                         
+                          'wandb')`                                             
+04/23 [02:12:27] INFO     | >> [*] Starting VLA Training     train_vgmvla.py:306
+                          Loop                                                  
+                 INFO     | >> [*] ===  trainable paramater     vgmactvla.py:689
+                          {'vgm.image_compressor',                              
+                          'vgm.projection', 'action_model.net',                 
+                          'vgm.lang_compressor'}  ===                           
+[1;34mwandb[0m: 
+[1;34mwandb[0m: 🚀 View run [33m0422V27_DiTB_freeze_reuseAct_128vgm4f_rt1_20250423_021012--image_aug[0m at: [34mhttps://wandb.ai/litwellchi/vgmact-rlbench10/runs/a3quwbcd[0m
+[1;34mwandb[0m: Find logs at: [1;35m0422V27_DiTB_freeze_reuseAct_128vgm4f_rt1_20250423_021012--image_aug/wandb/run-20250423_021226-a3quwbcd/logs[0m

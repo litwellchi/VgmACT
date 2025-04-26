@@ -190,7 +190,7 @@ class DiT(nn.Module):
         self.x_embedder = ActionEmbedder(action_size=in_channels, hidden_size=hidden_size)
         self.t_embedder = TimestepEmbedder(hidden_size)
         # self.z_embedder = LabelEmbedder(in_size=token_size, hidden_size=hidden_size, dropout_prob=class_dropout_prob)
-        self.z_embedder_video = LabelEmbedder(in_size=token_size, hidden_size=hidden_size, dropout_prob=class_dropout_prob)
+        # self.z_embedder_video = LabelEmbedder(in_size=token_size, hidden_size=hidden_size, dropout_prob=class_dropout_prob)
         self.z_embedder_image = LabelEmbedder(in_size=token_size, hidden_size=hidden_size, dropout_prob=class_dropout_prob)
         self.z_embedder_text = LabelEmbedder(in_size=token_size, hidden_size=hidden_size, dropout_prob=class_dropout_prob)
 
@@ -226,11 +226,11 @@ class DiT(nn.Module):
 
         # Initialize label embedding table:
         if self.class_dropout_prob > 0:
-            nn.init.normal_(self.z_embedder_video.uncondition, std=0.02)
+            # nn.init.normal_(self.z_embedder_video.uncondition, std=0.02)
             nn.init.normal_(self.z_embedder_image.uncondition, std=0.02)
             nn.init.normal_(self.z_embedder_text.uncondition, std=0.02)
-        nn.init.normal_(self.z_embedder_video.linear.weight, std=0.02)
-        nn.init.constant_(self.z_embedder_video.linear.bias, 0)
+        # nn.init.normal_(self.z_embedder_video.linear.weight, std=0.02)
+        # nn.init.constant_(self.z_embedder_video.linear.bias, 0)
         nn.init.normal_(self.z_embedder_image.linear.weight, std=0.02)
         nn.init.constant_(self.z_embedder_image.linear.bias, 0)
         nn.init.normal_(self.z_embedder_text.linear.weight, std=0.02)
@@ -255,15 +255,15 @@ class DiT(nn.Module):
         t = self.t_embedder(t)                              # (N, D)
         # z = self.z_embedder(z, self.training)               # (N, 1, D)
 
-        z_video = z[:, 0:1, :]  # 第一个模态 (B, 1, D)
+        # z_video = z[:, 0:1, :]  # 第一个模态 (B, 1, D)
         z_image = z[:, 1:2, :]  # 第二个模态 (B, 1, D)
         z_text = z[:, 2:3, :]  # 第三个模态 (B, 1, D)
-        z_video_embed = self.z_embedder_video(z_video, self.training)  # (N, 1, D')
+        # z_video_embed = self.z_embedder_video(z_video, self.training)  # (N, 1, D')
         z_image_embed = self.z_embedder_image(z_image, self.training)  # (N, 1, D')
         z_text_embed = self.z_embedder_text(z_text, self.training)     # (N, 1, D')
 
         # 后续处理，例如拼接或融合
-        z = torch.cat([z_video_embed, z_image_embed, z_text_embed], dim=1)  # (N, 3, D')
+        z = torch.cat([z_image_embed, z_text_embed], dim=1)  # (N, 3, D')
         c = t.unsqueeze(1).repeat(1,self.condition_token_len,1) + z                        # (N, 1, D)
         x = torch.cat((c, x), dim=1)                        # (N, T+1, D)
         # import pdb; pdb.set_trace()

@@ -1,0 +1,259 @@
+W0423 02:10:20.006000 1755513 site-packages/torch/distributed/run.py:792] 
+W0423 02:10:20.006000 1755513 site-packages/torch/distributed/run.py:792] *****************************************
+W0423 02:10:20.006000 1755513 site-packages/torch/distributed/run.py:792] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0423 02:10:20.006000 1755513 site-packages/torch/distributed/run.py:792] *****************************************
+2025-04-23 02:10:44.440251: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-04-23 02:10:44.440260: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-04-23 02:10:44.440260: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-04-23 02:10:44.440266: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-04-23 02:10:44.440265: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-04-23 02:10:44.440269: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-04-23 02:10:44.440271: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-04-23 02:10:44.440272: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-04-23 02:10:45.205524: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-04-23 02:10:45.205524: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-04-23 02:10:45.205525: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-04-23 02:10:45.205528: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-04-23 02:10:45.205521: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-04-23 02:10:45.205519: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-04-23 02:10:45.205521: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-04-23 02:10:45.205529: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-04-23 02:10:45.206217: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-04-23 02:10:45.206224: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-04-23 02:10:45.206218: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-04-23 02:10:45.206226: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-04-23 02:10:45.206229: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-04-23 02:10:45.206230: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-04-23 02:10:45.206233: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-04-23 02:10:45.206233: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-04-23 02:10:45.334728: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-04-23 02:10:45.334734: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-04-23 02:10:45.334733: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-04-23 02:10:45.334733: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-04-23 02:10:45.334741: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-04-23 02:10:45.334739: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-04-23 02:10:45.334741: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-04-23 02:10:45.334743: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-04-23 02:10:45.695536: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-04-23 02:10:45.695539: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-04-23 02:10:45.695542: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-04-23 02:10:45.695543: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-04-23 02:10:45.695547: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-04-23 02:10:45.695547: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-04-23 02:10:45.695549: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-04-23 02:10:45.695551: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-04-23 02:10:48.185836: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-04-23 02:10:48.185842: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-04-23 02:10:48.185840: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-04-23 02:10:48.185836: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-04-23 02:10:48.185836: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-04-23 02:10:48.185836: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-04-23 02:10:48.185837: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-04-23 02:10:48.185840: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-04-23 02:10:54.664938: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+2025-04-23 02:10:54.664939: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+2025-04-23 02:10:54.664939: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+2025-04-23 02:10:54.667083: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+2025-04-23 02:10:54.674542: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+2025-04-23 02:10:54.679035: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+2025-04-23 02:10:54.688663: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+2025-04-23 02:10:54.689756: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+[rank4]:[W423 02:11:06.934111989 ProcessGroupNCCL.cpp:4561] [PG ID 0 PG GUID 0 Rank 4]  using GPU 4 to perform barrier as devices used by this process are currently unknown. This can potentially cause a hang if this rank to GPU mapping is incorrect. Specify device_ids in barrier() to force use of a particular device, or call init_process_group() with a device_id.
+[rank7]:[W423 02:11:06.934111225 ProcessGroupNCCL.cpp:4561] [PG ID 0 PG GUID 0 Rank 7]  using GPU 7 to perform barrier as devices used by this process are currently unknown. This can potentially cause a hang if this rank to GPU mapping is incorrect. Specify device_ids in barrier() to force use of a particular device, or call init_process_group() with a device_id.
+[rank1]:[W423 02:11:06.934110225 ProcessGroupNCCL.cpp:4561] [PG ID 0 PG GUID 0 Rank 1]  using GPU 1 to perform barrier as devices used by this process are currently unknown. This can potentially cause a hang if this rank to GPU mapping is incorrect. Specify device_ids in barrier() to force use of a particular device, or call init_process_group() with a device_id.
+[rank3]:[W423 02:11:06.934110135 ProcessGroupNCCL.cpp:4561] [PG ID 0 PG GUID 0 Rank 3]  using GPU 3 to perform barrier as devices used by this process are currently unknown. This can potentially cause a hang if this rank to GPU mapping is incorrect. Specify device_ids in barrier() to force use of a particular device, or call init_process_group() with a device_id.
+[rank6]:[W423 02:11:06.934114674 ProcessGroupNCCL.cpp:4561] [PG ID 0 PG GUID 0 Rank 6]  using GPU 6 to perform barrier as devices used by this process are currently unknown. This can potentially cause a hang if this rank to GPU mapping is incorrect. Specify device_ids in barrier() to force use of a particular device, or call init_process_group() with a device_id.
+[rank2]:[W423 02:11:06.934109745 ProcessGroupNCCL.cpp:4561] [PG ID 0 PG GUID 0 Rank 2]  using GPU 2 to perform barrier as devices used by this process are currently unknown. This can potentially cause a hang if this rank to GPU mapping is incorrect. Specify device_ids in barrier() to force use of a particular device, or call init_process_group() with a device_id.
+[rank5]:[W423 02:11:06.934116071 ProcessGroupNCCL.cpp:4561] [PG ID 0 PG GUID 0 Rank 5]  using GPU 5 to perform barrier as devices used by this process are currently unknown. This can potentially cause a hang if this rank to GPU mapping is incorrect. Specify device_ids in barrier() to force use of a particular device, or call init_process_group() with a device_id.
+[rank0]:[W423 02:11:06.265908957 ProcessGroupNCCL.cpp:4561] [PG ID 0 PG GUID 0 Rank 0]  using GPU 0 to perform barrier as devices used by this process are currently unknown. This can potentially cause a hang if this rank to GPU mapping is incorrect. Specify device_ids in barrier() to force use of a particular device, or call init_process_group() with a device_id.
+2025-04-23 02:12:18.321243: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:18.326052: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:18.627471: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:18.655384: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:18.662824: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:18.697850: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:18.727651: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:18.801219: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:18.953411: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:19.037575: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:19.246764: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:19.271822: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:19.318285: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:19.348385: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:19.366816: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:19.385288: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:19.882079: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:20.038614: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:20.154961: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:20.175755: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:20.221070: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:20.265207: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:20.284453: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+2025-04-23 02:12:20.317357: I tensorflow/core/grappler/optimizers/data/replicate_on_split.cc:32] Running replicate on split optimization
+wandb: Using wandb-core as the SDK backend.  Please refer to https://wandb.me/wandb-core for more information.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+W0000 00:00:1745345546.543324 1755602 op_level_cost_estimator.cc:699] Error in PredictCost() for the op: op: "CropAndResize" attr { key: "T" value { type: DT_FLOAT } } attr { key: "extrapolation_value" value { f: 0 } } attr { key: "method" value { s: "bilinear" } } inputs { dtype: DT_FLOAT shape { dim { size: 1 } dim { size: 224 } dim { size: 224 } dim { size: -4 } } } inputs { dtype: DT_FLOAT shape { dim { size: -2 } dim { size: 4 } } } inputs { dtype: DT_INT32 shape { dim { size: -2 } } } inputs { dtype: DT_INT32 shape { dim { size: 2 } } } device { type: "CPU" vendor: "GenuineIntel" model: "111" frequency: 2000 num_cores: 200 environment { key: "cpu_instruction_set" value: "AVX SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE4.2" } environment { key: "eigen" value: "3.4.90" } l1_cache_size: 49152 l2_cache_size: 2097152 l3_cache_size: 110100480 memory_size: 268435456 } outputs { dtype: DT_FLOAT shape { dim { size: -2 } dim { size: -5 } dim { size: -6 } dim { size: -4 } } }
+W0000 00:00:1745345546.543122 1755605 op_level_cost_estimator.cc:699] Error in PredictCost() for the op: op: "CropAndResize" attr { key: "T" value { type: DT_FLOAT } } attr { key: "extrapolation_value" value { f: 0 } } attr { key: "method" value { s: "bilinear" } } inputs { dtype: DT_FLOAT shape { dim { size: 1 } dim { size: 224 } dim { size: 224 } dim { size: -4 } } } inputs { dtype: DT_FLOAT shape { dim { size: -2 } dim { size: 4 } } } inputs { dtype: DT_INT32 shape { dim { size: -2 } } } inputs { dtype: DT_INT32 shape { dim { size: 2 } } } device { type: "CPU" vendor: "GenuineIntel" model: "111" frequency: 2000 num_cores: 200 environment { key: "cpu_instruction_set" value: "AVX SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE4.2" } environment { key: "eigen" value: "3.4.90" } l1_cache_size: 49152 l2_cache_size: 2097152 l3_cache_size: 110100480 memory_size: 268435456 } outputs { dtype: DT_FLOAT shape { dim { size: -2 } dim { size: -5 } dim { size: -6 } dim { size: -4 } } }
+W0000 00:00:1745345546.544017 1755600 op_level_cost_estimator.cc:699] Error in PredictCost() for the op: op: "CropAndResize" attr { key: "T" value { type: DT_FLOAT } } attr { key: "extrapolation_value" value { f: 0 } } attr { key: "method" value { s: "bilinear" } } inputs { dtype: DT_FLOAT shape { dim { size: 1 } dim { size: 224 } dim { size: 224 } dim { size: -4 } } } inputs { dtype: DT_FLOAT shape { dim { size: -2 } dim { size: 4 } } } inputs { dtype: DT_INT32 shape { dim { size: -2 } } } inputs { dtype: DT_INT32 shape { dim { size: 2 } } } device { type: "CPU" vendor: "GenuineIntel" model: "111" frequency: 2000 num_cores: 200 environment { key: "cpu_instruction_set" value: "AVX SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE4.2" } environment { key: "eigen" value: "3.4.90" } l1_cache_size: 49152 l2_cache_size: 2097152 l3_cache_size: 110100480 memory_size: 268435456 } outputs { dtype: DT_FLOAT shape { dim { size: -2 } dim { size: -5 } dim { size: -6 } dim { size: -4 } } }
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+W0000 00:00:1745345546.544299 1755606 op_level_cost_estimator.cc:699] Error in PredictCost() for the op: op: "CropAndResize" attr { key: "T" value { type: DT_FLOAT } } attr { key: "extrapolation_value" value { f: 0 } } attr { key: "method" value { s: "bilinear" } } inputs { dtype: DT_FLOAT shape { dim { size: 1 } dim { size: 224 } dim { size: 224 } dim { size: -4 } } } inputs { dtype: DT_FLOAT shape { dim { size: -2 } dim { size: 4 } } } inputs { dtype: DT_INT32 shape { dim { size: -2 } } } inputs { dtype: DT_INT32 shape { dim { size: 2 } } } device { type: "CPU" vendor: "GenuineIntel" model: "111" frequency: 2000 num_cores: 200 environment { key: "cpu_instruction_set" value: "AVX SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE4.2" } environment { key: "eigen" value: "3.4.90" } l1_cache_size: 49152 l2_cache_size: 2097152 l3_cache_size: 110100480 memory_size: 268435456 } outputs { dtype: DT_FLOAT shape { dim { size: -2 } dim { size: -5 } dim { size: -6 } dim { size: -4 } } }
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+W0000 00:00:1745345546.551753 1755604 op_level_cost_estimator.cc:699] Error in PredictCost() for the op: op: "CropAndResize" attr { key: "T" value { type: DT_FLOAT } } attr { key: "extrapolation_value" value { f: 0 } } attr { key: "method" value { s: "bilinear" } } inputs { dtype: DT_FLOAT shape { dim { size: 1 } dim { size: 224 } dim { size: 224 } dim { size: -4 } } } inputs { dtype: DT_FLOAT shape { dim { size: -2 } dim { size: 4 } } } inputs { dtype: DT_INT32 shape { dim { size: -2 } } } inputs { dtype: DT_INT32 shape { dim { size: 2 } } } device { type: "CPU" vendor: "GenuineIntel" model: "111" frequency: 2000 num_cores: 200 environment { key: "cpu_instruction_set" value: "AVX SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE4.2" } environment { key: "eigen" value: "3.4.90" } l1_cache_size: 49152 l2_cache_size: 2097152 l3_cache_size: 110100480 memory_size: 268435456 } outputs { dtype: DT_FLOAT shape { dim { size: -2 } dim { size: -5 } dim { size: -6 } dim { size: -4 } } }
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+W0000 00:00:1745345546.555006 1755601 op_level_cost_estimator.cc:699] Error in PredictCost() for the op: op: "CropAndResize" attr { key: "T" value { type: DT_FLOAT } } attr { key: "extrapolation_value" value { f: 0 } } attr { key: "method" value { s: "bilinear" } } inputs { dtype: DT_FLOAT shape { dim { size: 1 } dim { size: 224 } dim { size: 224 } dim { size: -4 } } } inputs { dtype: DT_FLOAT shape { dim { size: -2 } dim { size: 4 } } } inputs { dtype: DT_INT32 shape { dim { size: -2 } } } inputs { dtype: DT_INT32 shape { dim { size: 2 } } } device { type: "CPU" vendor: "GenuineIntel" model: "111" frequency: 2000 num_cores: 200 environment { key: "cpu_instruction_set" value: "AVX SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE4.2" } environment { key: "eigen" value: "3.4.90" } l1_cache_size: 49152 l2_cache_size: 2097152 l3_cache_size: 110100480 memory_size: 268435456 } outputs { dtype: DT_FLOAT shape { dim { size: -2 } dim { size: -5 } dim { size: -6 } dim { size: -4 } } }
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+W0000 00:00:1745345546.565392 1755603 op_level_cost_estimator.cc:699] Error in PredictCost() for the op: op: "CropAndResize" attr { key: "T" value { type: DT_FLOAT } } attr { key: "extrapolation_value" value { f: 0 } } attr { key: "method" value { s: "bilinear" } } inputs { dtype: DT_FLOAT shape { dim { size: 1 } dim { size: 224 } dim { size: 224 } dim { size: -4 } } } inputs { dtype: DT_FLOAT shape { dim { size: -2 } dim { size: 4 } } } inputs { dtype: DT_INT32 shape { dim { size: -2 } } } inputs { dtype: DT_INT32 shape { dim { size: 2 } } } device { type: "CPU" vendor: "GenuineIntel" model: "111" frequency: 2000 num_cores: 200 environment { key: "cpu_instruction_set" value: "AVX SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE4.2" } environment { key: "eigen" value: "3.4.90" } l1_cache_size: 49152 l2_cache_size: 2097152 l3_cache_size: 110100480 memory_size: 268435456 } outputs { dtype: DT_FLOAT shape { dim { size: -2 } dim { size: -5 } dim { size: -6 } dim { size: -4 } } }
+wandb: Currently logged in as: litwellchi to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.19.7
+wandb: Run data is saved locally in /aifs4su/mmcode/worldm/videoact/VgmACT/0422V27_DiTB_freeze_reuseAct_128vgm4f_rt1_20250423_021012--image_aug/wandb/run-20250423_021226-a3quwbcd
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run 0422V27_DiTB_freeze_reuseAct_128vgm4f_rt1_20250423_021012--image_aug
+wandb: ⭐️ View project at https://wandb.ai/litwellchi/vgmact-rlbench10
+wandb: 🚀 View run at https://wandb.ai/litwellchi/vgmact-rlbench10/runs/a3quwbcd
+=>> [Epoch 000] Global Step 000000 =>> LR :: 0.000000:   0%|          | 0/40000 [00:00<?, ?it/s]WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+W0000 00:00:1745345548.173495 1755599 op_level_cost_estimator.cc:699] Error in PredictCost() for the op: op: "CropAndResize" attr { key: "T" value { type: DT_FLOAT } } attr { key: "extrapolation_value" value { f: 0 } } attr { key: "method" value { s: "bilinear" } } inputs { dtype: DT_FLOAT shape { dim { size: 1 } dim { size: 224 } dim { size: 224 } dim { size: -4 } } } inputs { dtype: DT_FLOAT shape { dim { size: -2 } dim { size: 4 } } } inputs { dtype: DT_INT32 shape { dim { size: -2 } } } inputs { dtype: DT_INT32 shape { dim { size: 2 } } } device { type: "CPU" vendor: "GenuineIntel" model: "111" frequency: 2000 num_cores: 200 environment { key: "cpu_instruction_set" value: "AVX SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE4.2" } environment { key: "eigen" value: "3.4.90" } l1_cache_size: 49152 l2_cache_size: 2097152 l3_cache_size: 110100480 memory_size: 268435456 } outputs { dtype: DT_FLOAT shape { dim { size: -2 } dim { size: -5 } dim { size: -6 } dim { size: -4 } } }
+[rank4]: Traceback (most recent call last):
+[rank4]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 326, in <module>
+[rank4]:     train()
+[rank4]:   File "/aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/lib/python3.10/site-packages/draccus/argparsing.py", line 225, in wrapper_inner
+[rank4]:     response = fn(cfg, *args, **kwargs)
+[rank4]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 307, in train
+[rank4]:     train_strategy.run_vla_training(
+[rank4]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/training/strategies/base_strategy_vgmact.py", line 343, in run_vla_training
+[rank4]:     epoch = (metrics.global_step + 1) // (len(vla_dataset) // self.global_batch_size)
+[rank4]: ZeroDivisionError: integer division or modulo by zero
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 326, in <module>
+[rank1]:     train()
+[rank1]:   File "/aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/lib/python3.10/site-packages/draccus/argparsing.py", line 225, in wrapper_inner
+[rank1]:     response = fn(cfg, *args, **kwargs)
+[rank1]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 307, in train
+[rank1]:     train_strategy.run_vla_training(
+[rank1]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/training/strategies/base_strategy_vgmact.py", line 343, in run_vla_training
+[rank1]:     epoch = (metrics.global_step + 1) // (len(vla_dataset) // self.global_batch_size)
+[rank1]: ZeroDivisionError: integer division or modulo by zero
+[rank7]: Traceback (most recent call last):
+[rank7]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 326, in <module>
+[rank7]:     train()
+[rank7]:   File "/aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/lib/python3.10/site-packages/draccus/argparsing.py", line 225, in wrapper_inner
+[rank7]:     response = fn(cfg, *args, **kwargs)
+[rank7]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 307, in train
+[rank7]:     train_strategy.run_vla_training(
+[rank7]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/training/strategies/base_strategy_vgmact.py", line 343, in run_vla_training
+[rank7]:     epoch = (metrics.global_step + 1) // (len(vla_dataset) // self.global_batch_size)
+[rank7]: ZeroDivisionError: integer division or modulo by zero
+[rank6]: Traceback (most recent call last):
+[rank6]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 326, in <module>
+[rank6]:     train()
+[rank6]:   File "/aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/lib/python3.10/site-packages/draccus/argparsing.py", line 225, in wrapper_inner
+[rank6]:     response = fn(cfg, *args, **kwargs)
+[rank6]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 307, in train
+[rank6]:     train_strategy.run_vla_training(
+[rank6]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/training/strategies/base_strategy_vgmact.py", line 343, in run_vla_training
+[rank6]:     epoch = (metrics.global_step + 1) // (len(vla_dataset) // self.global_batch_size)
+[rank6]: ZeroDivisionError: integer division or modulo by zero
+                                                                                                Traceback (most recent call last):
+  File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 326, in <module>
+    train()
+  File "/aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/lib/python3.10/site-packages/draccus/argparsing.py", line 225, in wrapper_inner
+    response = fn(cfg, *args, **kwargs)
+  File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 307, in train
+    train_strategy.run_vla_training(
+  File "/aifs4su/mmcode/worldm/videoact/VgmACT/training/strategies/base_strategy_vgmact.py", line 343, in run_vla_training
+    epoch = (metrics.global_step + 1) // (len(vla_dataset) // self.global_batch_size)
+ZeroDivisionError: integer division or modulo by zero
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 326, in <module>
+[rank0]:     train()
+[rank0]:   File "/aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/lib/python3.10/site-packages/draccus/argparsing.py", line 225, in wrapper_inner
+[rank0]:     response = fn(cfg, *args, **kwargs)
+[rank0]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 307, in train
+[rank0]:     train_strategy.run_vla_training(
+[rank0]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/training/strategies/base_strategy_vgmact.py", line 343, in run_vla_training
+[rank0]:     epoch = (metrics.global_step + 1) // (len(vla_dataset) // self.global_batch_size)
+[rank0]: ZeroDivisionError: integer division or modulo by zero
+[rank3]: Traceback (most recent call last):
+[rank3]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 326, in <module>
+[rank3]:     train()
+[rank3]:   File "/aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/lib/python3.10/site-packages/draccus/argparsing.py", line 225, in wrapper_inner
+[rank3]:     response = fn(cfg, *args, **kwargs)
+[rank3]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 307, in train
+[rank3]:     train_strategy.run_vla_training(
+[rank3]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/training/strategies/base_strategy_vgmact.py", line 343, in run_vla_training
+[rank3]:     epoch = (metrics.global_step + 1) // (len(vla_dataset) // self.global_batch_size)
+[rank3]: ZeroDivisionError: integer division or modulo by zero
+[rank5]: Traceback (most recent call last):
+[rank5]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 326, in <module>
+[rank5]:     train()
+[rank5]:   File "/aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/lib/python3.10/site-packages/draccus/argparsing.py", line 225, in wrapper_inner
+[rank5]:     response = fn(cfg, *args, **kwargs)
+[rank5]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 307, in train
+[rank5]:     train_strategy.run_vla_training(
+[rank5]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/training/strategies/base_strategy_vgmact.py", line 343, in run_vla_training
+[rank5]:     epoch = (metrics.global_step + 1) // (len(vla_dataset) // self.global_batch_size)
+[rank5]: ZeroDivisionError: integer division or modulo by zero
+[rank2]: Traceback (most recent call last):
+[rank2]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 326, in <module>
+[rank2]:     train()
+[rank2]:   File "/aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/lib/python3.10/site-packages/draccus/argparsing.py", line 225, in wrapper_inner
+[rank2]:     response = fn(cfg, *args, **kwargs)
+[rank2]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/scripts/train_vgmvla.py", line 307, in train
+[rank2]:     train_strategy.run_vla_training(
+[rank2]:   File "/aifs4su/mmcode/worldm/videoact/VgmACT/training/strategies/base_strategy_vgmact.py", line 343, in run_vla_training
+[rank2]:     epoch = (metrics.global_step + 1) // (len(vla_dataset) // self.global_batch_size)
+[rank2]: ZeroDivisionError: integer division or modulo by zero
+W0423 02:13:02.796000 1755513 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1755599 closing signal SIGTERM
+W0423 02:13:02.798000 1755513 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1755600 closing signal SIGTERM
+W0423 02:13:02.798000 1755513 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1755601 closing signal SIGTERM
+W0423 02:13:02.798000 1755513 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1755602 closing signal SIGTERM
+W0423 02:13:02.798000 1755513 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1755603 closing signal SIGTERM
+W0423 02:13:02.799000 1755513 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1755604 closing signal SIGTERM
+W0423 02:13:02.799000 1755513 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1755605 closing signal SIGTERM
+E0423 02:13:04.792000 1755513 site-packages/torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 7 (pid: 1755606) of binary: /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/bin/python3.10
+Traceback (most recent call last):
+  File "/aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/bin/torchrun", line 8, in <module>
+    sys.exit(main())
+  File "/aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+  File "/aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/lib/python3.10/site-packages/torch/distributed/run.py", line 918, in main
+    run(args)
+  File "/aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/lib/python3.10/site-packages/torch/distributed/run.py", line 909, in run
+    elastic_launch(
+  File "/aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+scripts/train_vgmvla.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2025-04-23_02:13:02
+  host      : dgx-063.cm.cluster
+  rank      : 7 (local_rank: 7)
+  exitcode  : 1 (pid: 1755606)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

@@ -1,7 +1,7 @@
 num_cards=8
-bsz_cards=48
+bsz_cards=64
 time=$(date +%Y%m%d_%H%M%S)
-run_id=V29_DiTS_rlbenchvgm_vtemperalcondi_128vgm4f_rlbench10_pretrain #_${time}
+run_id=V3_DiTB_noVideo #_${time}
 mkdir ./${run_id}--image_aug
 
 export WANDB_API_KEY="231c840bf4c83c49cc2241bcce066cb7b75967b2"
@@ -24,12 +24,12 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/sim
   --repeated_diffusion_steps 8 \
   --future_action_window_size 15 \
   --action_model_type DiT-S \
-  --wandb_project "vgmact-rlbench10-V2.9" \
+  --wandb_project "vgmact-rlbench10-V3" \
   --pretrained_checkpoint "/aifs4su/mmcode/worldm/RoboCrafter/save_checkpoints/ww_training_128_4frame_v1.0_rt1_4frame/checkpoints/epoch=74-step=600.ckpt"\
   --wandb_entity 'litwellchi' \
   --is_resume False \
   --vgm_param_mode 'freeze' \
-  --pretrain_action_model '/aifs4su/mmcode/worldm/videoact/CogACT/CogACT-Small/checkpoints/CogACT-Small.pt' 
+  --pretrain_action_model '/aifs4su/mmcode/worldm/videoact/CogACT/CogACT-Base/checkpoints/CogACT-Base.pt' 
   # --full_ckpt '/aifs4su/mmcode/worldm/videoact/VgmACT/0419V27_rt1pretrain_DiTS_vtemperalcondi_128vgm4f_rlbench10_20250419_222629--image_aug/checkpoints/step-030000-epoch-3000-loss=0.0014.pt' 
   # &>> ./${run_id}--image_aug/train.log &
 

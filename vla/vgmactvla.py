@@ -333,29 +333,29 @@ class VGM(nn.Module):
         cond_cognition_features = self.lang_compressor(cond_emb)          # [B, 1, D]
 
         # === Video Feature Masking/Projection ===
-        # only Masking when training
-        if train and torch.rand(1).item() < self.mask_video_prob:
-            video_features = torch.zeros_like(cond_cognition_features)    # [B, 1, D]
-            cognition_features = torch.cat([video_features, img_cognition_features, cond_cognition_features], dim=1)
-            return (cognition_features, 0, x_start) if train else cognition_features
+        # # only Masking when training
+        # if train and torch.rand(1).item() < self.mask_video_prob:
+        #     video_features = torch.zeros_like(cond_cognition_features)    # [B, 1, D]
+        #     cognition_features = torch.cat([video_features, img_cognition_features, cond_cognition_features], dim=1)
+        #     return (cognition_features, 0, x_start) if train else cognition_features
 
-        # === Full Forward or Skip Training ===
-        # only skil when training
-        use_vgm = True if not train else (torch.rand(1).item() < self.use_vgm_prob)
-        if use_vgm:
-            video_samples = self.vgm.apply_model(x_noisy, t_vid, cond, **kwargs)
-            x0_hat_target = self.vgm.predict_start_from_z_and_v(x_noisy, t_vid, video_samples)
-        else:
-            x0_hat_target = x_noisy
+        # # === Full Forward or Skip Training ===
+        # # only skil when training
+        # use_vgm = True if not train else (torch.rand(1).item() < self.use_vgm_prob)
+        # if use_vgm:
+        #     video_samples = self.vgm.apply_model(x_noisy, t_vid, cond, **kwargs)
+        #     x0_hat_target = self.vgm.predict_start_from_z_and_v(x_noisy, t_vid, video_samples)
+        # else:
+        #     x0_hat_target = x_noisy
 
-        # === Final Cognition Feature Assembly ===
-        video_features = self.projection(x0_hat_target,t_vid)
-        cognition_features = torch.cat([video_features, img_cognition_features, cond_cognition_features], dim=1)
+        # # === Final Cognition Feature Assembly ===
+        # video_features = self.projection(x0_hat_target,t_vid)
+        cognition_features = torch.cat([img_cognition_features, cond_cognition_features], dim=1)
 
         # === Compute Loss (if Training) ===
-        if train:
-            video_loss = self.get_video_loss(x_start, x0_hat_target, noise, t_vid)
-            return cognition_features, video_loss, x0_hat_target
+        # if train:
+            # video_loss = self.get_video_loss(x_start, x0_hat_target, noise, t_vid)
+            # return cognition_features, video_loss, x0_hat_target
 
         return cognition_features
 
@@ -380,7 +380,7 @@ class VgmACT(nn.Module):
                                             in_channels = action_dim, 
                                             future_action_window_size = future_action_window_size, 
                                             past_action_window_size = past_action_window_size,
-                                            condition_token_len=1+1+1) # img+lang+video
+                                            condition_token_len=1+1) # img+lang
         self.vgm = vgm
         self.future_action_window_size = future_action_window_size
         self.past_action_window_size = past_action_window_size
@@ -449,7 +449,7 @@ class VgmACT(nn.Module):
         #     f"# Parameters after re-set (in millions): {num_params / 10**6:.3f} Total, {num_trainable_params / 10**6:.3f} Trainable"
         # )
 
-        cognition_features, video_loss, x0_hat = self.vgm.one_ddim_step_forward(prompts=lang,images=pixel_values,train=True) # B, 1, D
+        cognition_features = self.vgm.one_ddim_step_forward(prompts=lang,images=pixel_values,train=True) # B, 1, D
 
         actions_history = actions[:,0:self.past_action_window_size,:]
         actions_future = actions[:, -(self.future_action_window_size+1):, :]
@@ -466,16 +466,16 @@ class VgmACT(nn.Module):
         # === 5. CVAP contrastive loss ===
         # Flatten for contrastive model
         # 只计算生成的第一个关键帧和第一个action应该是对应的
-        x0_hat_flat = x0_hat[:,1,:,:,:].detach()  # [B, C, H, W] if input is [B, T, C, H, W]
-        pose_flat = actions_future[:, 0, :].detach()  # use first future action as anchor [B, D]
+        # x0_hat_flat = x0_hat[:,1,:,:,:].detach()  # [B, C, H, W] if input is [B, T, C, H, W]
+        # pose_flat = actions_future[:, 0, :].detach()  # use first future action as anchor [B, D]
 
-        z_img, z_pose = self.cvap(x0_hat_flat, pose_flat)
-        contrastive_loss = self.cvap.nt_xent_loss(z_img, z_pose)
+        # z_img, z_pose = self.cvap(x0_hat_flat, pose_flat)
+        # contrastive_loss = self.cvap.nt_xent_loss(z_img, z_pose)
 
 
         # loss = act_loss + video_loss.mean()
         loss = act_loss 
-        return loss,  cognition_features, contrastive_loss
+        return loss,  cognition_features, 0
 
     def get_fsdp_wrapping_policy(self) -> Callable:
         """Return an FSDP wrapping policy that applies to `vgm.model`, `vgm.projection`, and specific prismatic modules."""
@@ -529,6 +529,7 @@ class VgmACT(nn.Module):
         norm_stats = None,
         full_ckpt=None,
         pretrain_action_model=None,
+        vgm_param_mode="freeze",
         **kwargs,
     ) -> VgmACT:
 
@@ -592,7 +593,24 @@ class VgmACT(nn.Module):
                     # 更新模型参数
                     model_dict.update(compatible_dict)
                     vgmact.action_model.load_state_dict(model_dict)
+
+        if vgm_param_mode =='freeze':
+            for name, param in vgmact.vgm.vgm.named_parameters():
+                param.requires_grad = False
+            # for name, param in vgmact.action_model.named_parameters():
+            #     param.requires_grad = False
+        
+        # vgmact.check_trainable_param()
         return vgmact        
+    def check_trainable_param(self):
+        seen = set()
+        for name, param in self.named_parameters():
+            if param.requires_grad:
+                short_name = ".".join(name.split(".")[:2])
+                if short_name not in seen:
+                    seen.add(short_name)
+        overwatch.info(f"=== [bold] trainable paramater {seen} [/] ===")                
+
 
     @torch.inference_mode()
     def predict_action(
@@ -640,16 +658,16 @@ class VgmACT(nn.Module):
         # Setup classifier-free guidance:
         if using_cfg:
             noise = torch.cat([noise, noise], 0)
-            uncondition_video = self.action_model.net.z_embedder_video.uncondition
+            # uncondition_video = self.action_model.net.z_embedder_video.uncondition
             uncondition_image = self.action_model.net.z_embedder_image.uncondition
             uncondition_text = self.action_model.net.z_embedder_text.uncondition
-            uncondition_video = uncondition_video.unsqueeze(0)  #[1, D]
-            uncondition_video = uncondition_video.expand(B, 1, -1) #[B, 1, D]
+            # uncondition_video = uncondition_video.unsqueeze(0)  #[1, D]
+            # uncondition_video = uncondition_video.expand(B, 1, -1) #[B, 1, D]
             uncondition_image = uncondition_image.unsqueeze(0)  #[1, D]
             uncondition_image = uncondition_image.expand(B, 1, -1) #[B, 1, D]
             uncondition_text = uncondition_text.unsqueeze(0)  #[1, D]
             uncondition_text = uncondition_text.expand(B, 1, -1) #[B, 1, D]
-            uncondition = torch.cat([uncondition_video, uncondition_image, uncondition_text], 1)
+            uncondition = torch.cat([uncondition_image, uncondition_text], 1)
             z = torch.cat([cognition_features, uncondition], 0)
             cfg_scale = cfg_scale
             model_kwargs = dict(z=z, cfg_scale=cfg_scale)
