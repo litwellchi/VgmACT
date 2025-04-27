@@ -1,7 +1,7 @@
 num_cards=4
-bsz_cards=128
+bsz_cards=16
 time=$(date +%Y%m%d_%H%M%S)
-run_id=V3_DiTB_+Video_freeze2 #_${time}
+run_id=V3_DiTB_+Video_lora #_${time}
 mkdir ./${run_id}--image_aug
 
 export WANDB_API_KEY="231c840bf4c83c49cc2241bcce066cb7b75967b2"
@@ -9,7 +9,7 @@ export HF_HOME="/aifs4su/mmcode/worldm/.cache/huggingface"
 export TFDS_DATA_DIR="/aifs4su/mmcode/worldm/open_x_embodiment/rlbench/dataset/rlbench_concat_future_fixed4"
 
 
-CUDA_VISIBLE_DEVICES=4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/bin/torchrun --standalone --nnodes 1 --nproc-per-node $num_cards scripts/train_vgmvla.py \
+CUDA_VISIBLE_DEVICES=0,1,2,3 /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/bin/torchrun --standalone --nnodes 1 --nproc-per-node $num_cards scripts/train_vgmvla.py \
   --vla.type prism-dinosiglip-224px+oxe+diffusion \
   --vla.data_mix custom_finetuning \
   --vla.expected_world_size $num_cards \
@@ -28,7 +28,7 @@ CUDA_VISIBLE_DEVICES=4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env
   --pretrained_checkpoint "/aifs4su/mmcode/worldm/RoboCrafter/save_checkpoints/ww_training_128_4frame_v1.0_rt1_4frame/checkpoints/epoch=74-step=600.ckpt"\
   --wandb_entity 'litwellchi' \
   --is_resume False \
-  --vgm_param_mode 'freeze' \
+  --vgm_param_mode 'lora' \
   --pretrain_action_model '/aifs4su/mmcode/worldm/videoact/CogACT/CogACT-Base/checkpoints/CogACT-Base.pt' 
   # --full_ckpt "/aifs4su/mmcode/worldm/videoact/VgmACT/V3_DiTB_noVideo--image_aug/checkpoints/step-010000-epoch-1000-loss=0.0188.pt"
   # &>> ./${run_id}--image_aug/train.log &

@@ -185,12 +185,13 @@ class VGM(nn.Module):
         self.load_concate_frame=load_concate_frame
         self.use_vgm_prob = use_vgm_prob
 
-        if mode=='freeze':
-            self.vgm.eval()
-        elif mode=='lora':
-            self.set_trainable_param(use_lora=True)
-        elif mode=='full':
-            self.set_trainable_param(use_lora=False)
+        # 在vgm load的时候set
+        # if mode=='freeze':
+        #     self.vgm.eval()
+        # elif mode=='lora':
+        #     self.set_trainable_param(mode=mode)
+        # elif mode=='full':
+        #     self.set_trainable_param(mode=mode)
     
         self.vgm.embedder.eval()
         self.vgm.image_proj_model.eval()
@@ -228,21 +229,23 @@ class VGM(nn.Module):
                                         )
         # self.lang_compressor  = ModalityCompressor(input_dim=1024, output_dim=self.proj_dim, method='mlp')
 
-    def set_trainable_param(self, use_lora=False):
+    def set_trainable_param(self, mode='freeze'):
         # 冻结所有参数
         for param in self.vgm.parameters():
             param.requires_grad = False
 
         # 仅解冻 `vgm.model` 和 `projection`
-        for param in self.vgm.model.parameters():
-            param.requires_grad = True
-
         for param in self.projection.parameters():
             param.requires_grad = True
         for param in self.state_compressor.parameters():
             param.requires_grad = True
 
-        self._init_unet_lora(use_lora=use_lora)
+
+        if mode=='lora':
+            self._init_unet_lora(use_lora=True)
+        elif mode=='full':
+            for param in self.vgm.model.diffusion_model.parameters():
+                param.requires_grad = True
 
     def _init_unet_lora(self, use_lora):
         import peft
@@ -766,6 +769,14 @@ class VgmACT(nn.Module):
                         use_ema = use_ema,
                         norm_stats = norm_stats,
                         )
+        if vgm_param_mode=='freeze':
+            for name, param in vgmact.vgm.vgm.named_parameters():
+                param.requires_grad = False
+        elif vgm_param_mode=='full':
+            vgmact.vgm.set_trainable_param(mode=vgm_param_mode)
+        elif vgm_param_mode=='lora':
+            vgmact.vgm.set_trainable_param(mode=vgm_param_mode)
+            
         if full_ckpt is not None:
             model_state_dict=torch.load(full_ckpt, map_location="cpu")["model"]
          # Load ActionModel from Checkpoint
@@ -785,7 +796,7 @@ class VgmACT(nn.Module):
 
             try:
                 vgmact.vgm.projection.load_state_dict(model_state_dict["vgm.projection"])
-                vgmact.vgm.image_compressor.load_state_dict(model_state_dict["vgm.state_compressor"])
+                vgmact.vgm.state_compressor.load_state_dict(model_state_dict["vgm.state_compressor"])
                 overwatch.info("Loading vgm.projection,vgm.state_compressor successfully.")
             except:
                 overwatch.warning("No vgm.state_compressor found in the pretrained checkpoint. Initializing a new one.")
@@ -818,11 +829,6 @@ class VgmACT(nn.Module):
                     overwatch.info(f"=>> Loaded [bold]{len(compatible_dict)}[/] parameters from [bold]{pretrain_action_model}[/]:")
 
                 
-        if vgm_param_mode=='freeze':
-            for name, param in vgmact.vgm.vgm.named_parameters():
-                param.requires_grad = False
-        elif vgm_param_mode=='full':
-            vgmact.vgm.set_trainable_param(use_lora=False)
             # for name, param in vgmact.action_model.named_parameters():
             #     param.requires_grad = False
         
@@ -832,7 +838,7 @@ class VgmACT(nn.Module):
         seen = set()
         for name, param in self.named_parameters():
             if param.requires_grad:
-                short_name = ".".join(name.split(".")[:2])
+                short_name = ".".join(name.split(".")[:3])
                 if short_name not in seen:
                     seen.add(short_name)
         overwatch.info(f"=== [bold] trainable paramater {seen} [/] ===")                
