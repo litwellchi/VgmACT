@@ -126,7 +126,7 @@ class VGM(nn.Module):
                  sys_path='/aifs4su/mmcode/worldm/videoact/VgmACT/DynamiCrafter',
                  proj_dim: int = 4096,
                  fake_ddpm_step=918,
-                 mode='fix',
+                 mode='full',
                  mask_video_prob = 0.2,
                  load_concate_frame=True,
                  use_vgm_prob = 0.95):
@@ -177,7 +177,7 @@ class VGM(nn.Module):
 
         self.scheduler = VideoTimeStepScheduler(
             total_ddpm_steps=1000,
-            ddim_steps_list=[5, 10, 50], # ususally video generation ddim step is 5,10,or50
+            ddim_steps_list=[10], # ususally video generation ddim step is 5,10,or50
             prefer_late_steps=True,
             device=torch.device("cuda")
         )
@@ -187,10 +187,10 @@ class VGM(nn.Module):
 
         if mode=='freeze':
             self.vgm.eval()
-        elif mode=='lora':
-            self.set_trainable_param(use_lora=True)
+        # elif mode=='lora':
+        #     self.set_trainable_param(mode=mode)
         elif mode=='full':
-            self.set_trainable_param(use_lora=False)
+            self.set_trainable_param(mode=mode)
     
         self.vgm.embedder.eval()
         self.vgm.image_proj_model.eval()
@@ -215,7 +215,7 @@ class VGM(nn.Module):
         self.projection = TemporalTransformerCondition.from_input_shape(
             input_shape=(c, t, h, w),  # (C, T, H, W)
             proj_dim=768, # 输出给 diffusion 的 cond 向量维度, TODO,   现在仅仅适配DiT-B 768
-            target_model_size_mb=200    # 目标模型大小（可选）
+            target_model_size_mb=100    # 目标模型大小（可选）
         )
 
         self.state_compressor = Resampler(  dim=self.proj_dim,          # latent内部处理维度
@@ -228,21 +228,23 @@ class VGM(nn.Module):
                                         )
         # self.lang_compressor  = ModalityCompressor(input_dim=1024, output_dim=self.proj_dim, method='mlp')
 
-    def set_trainable_param(self, use_lora=False):
+    def set_trainable_param(self, mode='freeze'):
         # 冻结所有参数
         for param in self.vgm.parameters():
             param.requires_grad = False
-
-        # 仅解冻 `vgm.model` 和 `projection`
-        for param in self.vgm.model.parameters():
-            param.requires_grad = True
 
         for param in self.projection.parameters():
             param.requires_grad = True
         for param in self.state_compressor.parameters():
             param.requires_grad = True
 
-        self._init_unet_lora(use_lora=use_lora)
+        if mode == 'full':
+        # 仅解冻 `vgm.model`
+            for param in self.vgm.model.diffusion_model.parameters():
+                param.requires_grad = True
+
+        elif mode == 'lora':
+            self._init_unet_lora(use_lora=True)
 
     def _init_unet_lora(self, use_lora):
         import peft
@@ -391,65 +393,121 @@ class VGM(nn.Module):
         # === Sample Noise and Time Step ===
         x_start = z.detach().clone()
         noise = torch.randn_like(x_start)
-        # if train:
-        #     t_vid = self.scheduler.sample_train_timestep(batch_size=x_start.shape[0])
-        # elif not train and fix_video_timesteps is not None:
-        #     t_vid = self.scheduler.get_infer_timestep(batch_size=x_start.shape[0], t_value=fix_video_timesteps)
-        # x_noisy = self.vgm.q_sample(x_start=x_start, t=t_vid, noise=noise)
+        # === Always create cond_mask ===
+        cond_mask = self.create_time_varying_mask(z.shape)
 
-        # # === Apply Conditional Mask ===
-        # # === inference pass ===
-        if not train: # inference forward pass
-            # x_noisy = self.vgm.q_sample(x_start=x_start, t=t_vid, noise=noise)
-            
-            t_vid_blur = self.scheduler.sample_train_timestep(batch_size=x_start.shape[0])
+        if not train:  # === Inference ===
+            # Fixed timestep for inference (可以自己设，比如900)
+            t_vid_blur = torch.full(
+                (x_start.shape[0],), 
+                fill_value=900,  # 推理t，自己设
+                dtype=torch.long, 
+                device=x_start.device
+            )
             x_noisy_blur = self.vgm.q_sample(x_start=x_start, t=t_vid_blur, noise=noise)
-
-            cond_mask = self.create_time_varying_mask(z.shape)
-            if cond_mask is not None:
-                x_noisy = self.vgm.q_sample(x_start=x_start, t=t_vid_blur, noise=noise)
-                x_noisy = x_start * cond_mask + (1. - cond_mask) * x_noisy
+            x_noisy_blur = x_start * cond_mask + (1. - cond_mask) * x_noisy_blur
 
             x0_hat_blur_v = self.vgm.apply_model(x_noisy_blur, t_vid_blur, cond, **kwargs)
             video_features = self.projection(x0_hat_blur_v, t_vid_blur)
-            cognition_features = [state_cognition_features,  video_features]
+            cognition_features = [state_cognition_features, video_features]
             return cognition_features, x0_hat_blur_v
 
-        # # === Full Forward or Skip Training ===
-        elif train:
-        # === Sample blurry ===
-            t_vid_blur = self.scheduler.sample_train_timestep(batch_size=x_start.shape[0])
-            x_noisy_blur = self.vgm.q_sample(x_start=x_start, t=t_vid_blur, noise=noise)
+        else:  # === Training ===
+            # Fixed timestep for training
+            t_vid_blur = torch.full(
+                (x_start.shape[0],), 
+                fill_value=900,  # 固定训练t=900
+                dtype=torch.long, 
+                device=x_start.device
+            )
+            x_start_blur = x_start[:, :, :1, :, :].repeat(1, 1, x_start.shape[2], 1, 1)
+            x_noisy_blur = self.vgm.q_sample(x_start=x_start_blur, t=t_vid_blur, noise=noise)
+            x_noisy_blur_copy = x_noisy_blur.clone()
+            x_noisy_blur = x_start_blur * cond_mask + (1. - cond_mask) * x_noisy_blur
 
-            # === Sample sharp ===
-            t_vid_sharp = self.scheduler.get_near_final_timestep(batch_size=x_start.shape[0])
+            t_vid_sharp = torch.full(
+                (x_start.shape[0],), 
+                fill_value=999,  # 训练sharp分支，接近最后一步
+                dtype=torch.long, 
+                device=x_start.device
+            )
             x_noisy_sharp = self.vgm.q_sample(x_start=x_start, t=t_vid_sharp, noise=noise)
+            x_noisy_sharp = x_start * cond_mask + (1. - cond_mask) * x_noisy_sharp
 
-            # === Get video_features ===
-            use_vgm = True if not train else (torch.rand(1).item() < self.use_vgm_prob)
+            use_vgm = torch.rand(1).item() < self.use_vgm_prob
             if use_vgm:
                 x0_hat_blur_v = self.vgm.apply_model(x_noisy_blur, t_vid_blur, cond, **kwargs)
-                x0_hat_blur = x0_hat_blur_v # use v prediction for action generation
-                # x0_hat_blur = self.vgm.predict_start_from_z_and_v(x_noisy_blur, t_vid_blur, x0_hat_blur_v)
+                x0_hat_blur = x0_hat_blur_v
+
                 x0_hat_sharp_v = self.vgm.apply_model(x_noisy_sharp, t_vid_sharp, cond, **kwargs)
                 x0_hat_sharp = x0_hat_sharp_v.detach().clone()
-                # x0_hat_sharp = self.vgm.predict_start_from_z_and_v(x_noisy_sharp, t_vid_sharp, x0_hat_sharp_v)
             else:
                 x0_hat_blur = x_noisy_blur
                 x0_hat_sharp = x_noisy_sharp
 
             video_features_blur = self.projection(x0_hat_blur, t_vid_blur)
             video_features_sharp = self.projection(x0_hat_sharp, t_vid_sharp)
-            # === Compute Consistency Loss ===
-            consistency_loss = torch.nn.functional.mse_loss(video_features_blur, video_features_sharp.detach().clone())
-            video_loss = self.get_video_loss(x_start, x0_hat_blur, x_noisy_blur, t_vid_blur)
 
-            if torch.rand(1).item() < self.use_vgm_prob: # unconditional share the same rate with use_vgm
+            consistency_loss = torch.nn.functional.mse_loss(video_features_blur, video_features_sharp.detach())
+            video_loss = self.get_video_loss(x_start, x0_hat_blur, x_noisy_blur_copy, t_vid_blur)
+
+            if torch.rand(1).item() < 0.2: # dropout video feature, for cfg generation
                 video_features_blur = torch.zeros_like(video_features_blur)
-            cognition_features = [state_cognition_features,  video_features_blur]#[(B, 1, D),(B,S,D)] 
 
-            # return cognition_features, video_loss, x0_hat_target
+            cognition_features = [state_cognition_features, video_features_blur]
             return cognition_features, consistency_loss, video_loss
+
+        # # === Always create cond_mask ===
+        # cond_mask = self.create_time_varying_mask(z.shape)
+
+        # if not train:  # === Inference ===
+        #     t_vid_blur = self.scheduler.sample_train_timestep(batch_size=x_start.shape[0])
+        #     x_noisy_blur = self.vgm.q_sample(x_start=x_start, t=t_vid_blur, noise=noise)
+        #     x_noisy_blur = x_start * cond_mask + (1. - cond_mask) * x_noisy_blur
+
+        #     x0_hat_blur_v = self.vgm.apply_model(x_noisy_blur, t_vid_blur, cond, **kwargs)
+        #     video_features = self.projection(x0_hat_blur_v, t_vid_blur)
+        #     cognition_features = [state_cognition_features, video_features]
+        #     return cognition_features, x0_hat_blur_v
+
+        # else:  # === Training ===
+        #     # === Sample blurry ===
+        #     t_vid_blur = self.scheduler.sample_train_timestep(batch_size=x_start.shape[0])
+        #     x_noisy_blur = self.vgm.q_sample(x_start=x_start, t=t_vid_blur, noise=noise)
+        #     x_noisy_blur_copy = x_noisy_blur.clone()
+        #     x_noisy_blur = x_start * cond_mask + (1. - cond_mask) * x_noisy_blur
+
+        #     # === Sample sharp ===
+        #     t_vid_sharp = self.scheduler.get_near_final_timestep(batch_size=x_start.shape[0])
+        #     x_noisy_sharp = self.vgm.q_sample(x_start=x_start, t=t_vid_sharp, noise=noise)
+        #     x_noisy_sharp = x_start * cond_mask + (1. - cond_mask) * x_noisy_sharp
+
+        #     # === Decide whether to use vgm ===
+        #     use_vgm = torch.rand(1).item() < self.use_vgm_prob
+        #     if use_vgm:
+        #         x0_hat_blur_v = self.vgm.apply_model(x_noisy_blur, t_vid_blur, cond, **kwargs)
+        #         x0_hat_blur = x0_hat_blur_v
+
+        #         x0_hat_sharp_v = self.vgm.apply_model(x_noisy_sharp, t_vid_sharp, cond, **kwargs)
+        #         x0_hat_sharp = x0_hat_sharp_v.detach().clone()
+        #     else:
+        #         x0_hat_blur = x_noisy_blur
+        #         x0_hat_sharp = x_noisy_sharp
+
+        #     # === Project features ===
+        #     video_features_blur = self.projection(x0_hat_blur, t_vid_blur)
+        #     video_features_sharp = self.projection(x0_hat_sharp, t_vid_sharp)
+
+        #     # === Losses ===
+        #     consistency_loss = torch.nn.functional.mse_loss(video_features_blur, video_features_sharp.detach())
+        #     video_loss = self.get_video_loss(x_start, x0_hat_blur, x_noisy_blur_copy, t_vid_blur)
+
+        #     if torch.rand(1).item() < self.use_vgm_prob:
+        #         video_features_blur = torch.zeros_like(video_features_blur)
+
+        #     cognition_features = [state_cognition_features, video_features_blur]
+        #     return cognition_features, consistency_loss, video_loss
+        
 
     def save_results_video_seperate(self, prompt, samples, filename, fakedir, fps=10, loop=False):
         prompt = prompt[0] if isinstance(prompt, list) else prompt
@@ -642,8 +700,6 @@ class VgmACT(nn.Module):
         keys += self._trainable_module_keys
         return keys
     
-    def freeze_backbones(self, stage):
-        self.vlm.freeze_backbones(stage)
 
     def forward(
         self,
@@ -705,7 +761,7 @@ class VgmACT(nn.Module):
         # 1️⃣ 获取 vgm.model 的 FSDP wrapping policy
         vgm_fsdp_wrapping_policy = partial(
             _module_wrap_policy,
-            module_classes={type(self.vgm.vgm.model)},  # 确保正确获取类型
+            module_classes={type(self.vgm.vgm.model.diffusion_model)},  # 确保正确获取类型
         )
 
         # 2️⃣ 定义 `projection` 的 wrapping policy
@@ -766,6 +822,8 @@ class VgmACT(nn.Module):
                         use_ema = use_ema,
                         norm_stats = norm_stats,
                         )
+
+            
         if full_ckpt is not None:
             model_state_dict=torch.load(full_ckpt, map_location="cpu")["model"]
          # Load ActionModel from Checkpoint
@@ -785,16 +843,16 @@ class VgmACT(nn.Module):
 
             try:
                 vgmact.vgm.projection.load_state_dict(model_state_dict["vgm.projection"])
-                vgmact.vgm.image_compressor.load_state_dict(model_state_dict["vgm.state_compressor"])
+                vgmact.vgm.state_compressor.load_state_dict(model_state_dict["vgm.state_compressor"])
                 overwatch.info("Loading vgm.projection,vgm.state_compressor successfully.")
             except:
                 overwatch.warning("No vgm.state_compressor found in the pretrained checkpoint. Initializing a new one.")
 
             missing_keys_info = vgmact.vgm.vgm.model.load_state_dict(model_state_dict["vgm.vgm.model"], strict=False)
             if not missing_keys_info.missing_keys and not missing_keys_info.unexpected_keys:
-                overwatch.info("Loading vgm.model successfully.")
+                overwatch.info("Loading [bold blue] vgm.model [/] successfully.")
             else:
-                overwatch.warning("Loading vgm.model warning: Some missing keys, or  unexpected keys.")
+                overwatch.warning(f"Loading vgm.model [bold red] warning: Some missing keys:{missing_keys_info.missing_keys}, or  unexpected keys:{missing_keys_info.unexpected_keys}. [/]")
 
         elif pretrain_action_model is not None:
             overwatch.info(f"Using pretrained action model from {pretrain_action_model}")
@@ -816,23 +874,35 @@ class VgmACT(nn.Module):
                     model_dict.update(compatible_dict)
                     vgmact.action_model.load_state_dict(model_dict)
                     overwatch.info(f"=>> Loaded [bold]{len(compatible_dict)}[/] parameters from [bold]{pretrain_action_model}[/]:")
-
-                
+        
         if vgm_param_mode=='freeze':
             for name, param in vgmact.vgm.vgm.named_parameters():
                 param.requires_grad = False
         elif vgm_param_mode=='full':
-            vgmact.vgm.set_trainable_param(use_lora=False)
-            # for name, param in vgmact.action_model.named_parameters():
-            #     param.requires_grad = False
+        # 仅解冻 `vgm.model`
+            for name, param in vgmact.vgm.vgm.model.diffusion_model.named_parameters():
+                param.requires_grad = True
+        elif vgm_param_mode=='lora':
+            import peft
+            lora_config = peft.LoraConfig(
+                r=4,
+                lora_alpha=1,
+                # only diffusion_model has these modules
+                target_modules=["to_k", "to_v", "to_q"],
+                lora_dropout=0.0,
+            )
+            vgmact.vgm.vgm.model.diffusion_model = peft.get_peft_model(
+                vgmact.vgm.vgm.model.diffusion_model, lora_config)
+            vgmact.vgm.vgm.model.diffusion_model.print_trainable_parameters()
         
-        # vgmact.check_trainable_param()
         return vgmact        
+    
+    
     def check_trainable_param(self):
         seen = set()
         for name, param in self.named_parameters():
             if param.requires_grad:
-                short_name = ".".join(name.split(".")[:2])
+                short_name = ".".join(name.split(".")[:3])
                 if short_name not in seen:
                     seen.add(short_name)
         overwatch.info(f"=== [bold] trainable paramater {seen} [/] ===")                

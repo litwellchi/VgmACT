@@ -280,6 +280,7 @@ def load_vgmvla(
         norm_stats=norm_stats,
         full_ckpt=full_ckpt,
         pretrain_action_model=pretrain_action_model,
+        mode=vgm_param_mode,
         **kwargs,
     )
 
