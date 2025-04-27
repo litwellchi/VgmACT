@@ -158,7 +158,7 @@ class TemporalTransformerCondition(nn.Module):
         self.proj_dim = proj_dim
         self.max_frames = max_frames
         self.frame_size = frame_size  # (H, W)
-
+        
         C, H, W = in_channels, *frame_size
 
         # Frame embedding: flatten each frame and map to hidden_size
@@ -216,9 +216,9 @@ class TemporalTransformerCondition(nn.Module):
         x = x + t_embed  # 将时间条件加到每一帧上
 
         x = self.temporal_transformer(x)  # (B, T, hidden_size)
-        x = x.mean(dim=1)  # (B, hidden_size)
+        # x = x.mean(dim=1)  # (B, hidden_size)
 
-        return self.output_proj(x).unsqueeze(1)  # (B, 1, proj_dim)
+        return self.output_proj(x) # (B, T, proj_dim)
 
     @classmethod
     def from_input_shape(cls, input_shape, proj_dim=256, target_model_size_mb=100):
@@ -259,6 +259,7 @@ class VideoTimeStepScheduler:
         ddim_steps_list: list = [5, 10, 50],
         prefer_late_steps: bool = True,
         device: torch.device = torch.device("cuda"),
+        final_phase_ratio: float = 0.9, 
     ):
         """
         Args:
@@ -270,6 +271,7 @@ class VideoTimeStepScheduler:
         self.total_ddpm_steps = total_ddpm_steps
         self.ddim_steps_list = ddim_steps_list
         self.device = device
+        self.final_phase_ratio = final_phase_ratio
 
         # 构造所有 candidate 时间步
         self.candidate_ts = self.build_candidate_timestep_set()
@@ -312,3 +314,12 @@ class VideoTimeStepScheduler:
         推理时固定某个时间步
         """
         return torch.full((batch_size,), t_value, device=self.device, dtype=torch.long)
+    
+    def get_near_final_timestep(self, batch_size: int):
+        """
+        返回靠近最后阶段的时间步，比如最后10%的时间步。
+        """
+        start_idx = int(self.total_ddpm_steps * self.final_phase_ratio)
+        t = torch.randint(low=start_idx, high=self.total_ddpm_steps, size=(batch_size,), device=self.device)
+        return t
+    

@@ -244,7 +244,8 @@ class VLAMetrics:
         self.state = {
             "loss_raw": deque(maxlen=grad_accumulation_steps),
             "loss": deque(maxlen=window_size),
-            # "contrastive_loss": deque(maxlen=window_size),
+            "consistency_loss": deque(maxlen=window_size),
+            "video_loss": deque(maxlen=window_size),
             "step_time": deque(maxlen=window_size),
             "lr": [],
         }
@@ -309,7 +310,8 @@ class VLAMetrics:
         # Note :: Raw Loss is an Average over Gradient Accumulation Steps --> No Smoothing!
         loss_raw = torch.stack(list(self.state["loss_raw"])).mean().item()
         loss = torch.stack(list(self.state["loss"])).mean().item()
-        # contrastive_loss = torch.stack(list(self.state["contrastive_loss"])).mean().item()
+        consistency_loss = torch.stack(list(self.state["consistency_loss"])).mean().item()
+        video_loss = torch.stack(list(self.state["video_loss"])).mean().item()
         step_time, lr = np.mean(list(self.state["step_time"])), self.state["lr"][-1]
         status = self.get_status(loss)
 
@@ -322,7 +324,8 @@ class VLAMetrics:
                 f"{prefix}/Step": self.global_step,
                 f"{prefix}/Epoch": self.epoch,
                 f"{prefix}/Loss": loss,
-                # f"{prefix}/contrastive_loss": contrastive_loss,
+                f"{prefix}/consistency_loss": consistency_loss,
+                f"{prefix}/video_loss": video_loss,
                 f"{prefix}/Loss (Raw)": loss_raw,
                 f"{prefix}/Learning Rate": lr,
                 f"{prefix}/Step Time": step_time,

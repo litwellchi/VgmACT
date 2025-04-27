@@ -120,25 +120,64 @@ class HistoryEmbedder(nn.Module):
 #                                 Core DiT Model                                #
 #################################################################################
 
+# class DiTBlock(nn.Module):
+#     """
+#     A DiT block with self-attention conditioning.
+#     """
+#     def __init__(self, hidden_size, num_heads, mlp_ratio=4.0, **block_kwargs):
+#         super().__init__()
+#         self.norm1 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
+#         self.attn = Attention(hidden_size, num_heads=num_heads, qkv_bias=True, **block_kwargs)
+#         self.norm2 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
+#         mlp_hidden_dim = int(hidden_size * mlp_ratio)
+#         approx_gelu = lambda: nn.GELU(approximate="tanh")
+#         self.mlp = Mlp(in_features=hidden_size, hidden_features=mlp_hidden_dim, act_layer=approx_gelu, drop=0)
+
+#     def forward(self, x):
+#         x = x + self.attn(self.norm1(x))
+#         x = x + self.mlp(self.norm2(x))
+#         return x
+
+
 class DiTBlock(nn.Module):
     """
-    A DiT block with self-attention conditioning.
+    A DiT block with self-attention and optional cross-attention conditioning.
     """
-    def __init__(self, hidden_size, num_heads, mlp_ratio=4.0, **block_kwargs):
+    def __init__(self, hidden_size, num_heads, mlp_ratio=4.0, cross_attn=True, **block_kwargs):
         super().__init__()
+        self.cross_attn_enabled = cross_attn
+
         self.norm1 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
         self.attn = Attention(hidden_size, num_heads=num_heads, qkv_bias=True, **block_kwargs)
+
+        if self.cross_attn_enabled:
+            self.norm_cross = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
+            self.cross_attn = nn.MultiheadAttention(embed_dim=hidden_size, num_heads=num_heads, batch_first=True)
+            self.cross_attn_gate = nn.Parameter(torch.zeros(1))  # 学习一个 Residual 权重
+
         self.norm2 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
         mlp_hidden_dim = int(hidden_size * mlp_ratio)
         approx_gelu = lambda: nn.GELU(approximate="tanh")
         self.mlp = Mlp(in_features=hidden_size, hidden_features=mlp_hidden_dim, act_layer=approx_gelu, drop=0)
 
-    def forward(self, x):
+    def forward(self, x, cross_kv=None):
+        """
+        x: (N, T, D), the main input
+        cross_kv: (N, S, D), the cross attention source (optional)
+        """
+        # Self-Attention
         x = x + self.attn(self.norm1(x))
+
+        # Cross-Attention (if enabled)
+        if self.cross_attn_enabled and cross_kv is not None:
+            norm_x = self.norm_cross(x)
+            cross_out, _ = self.cross_attn(query=norm_x, key=cross_kv, value=cross_kv, need_weights=False)
+            x = x + torch.tanh(self.cross_attn_gate) * cross_out
+
+        # MLP
         x = x + self.mlp(self.norm2(x))
         return x
-
-
+    
 class FinalLayer(nn.Module):
     """
     The final layer of DiT.
@@ -237,16 +276,19 @@ class DiT(nn.Module):
         history: (N, H, D) tensor of action history # not used now
         x: (N, T, D) tensor of predicting action inputs
         t: (N,) tensor of diffusion timesteps
-        z: (N, 1, D) tensor of conditions
+        z: [(N, 1, D),(N,S,D)] status condition, video features
         """
+        z, video_features = z
         x = self.x_embedder(x)                              # (N, T, D)
         t = self.t_embedder(t)                              # (N, D)
         z = self.z_embedder(z, self.training)               # (N, 1, D)
         c = t.unsqueeze(1) + z                              # (N, 1, D)
         x = torch.cat((c, x), dim=1)                        # (N, T+1, D)
         x = x + self.positional_embedding                   # (N, T+1, D)
+        # for block in self.blocks:
+        #     x = block(x)                                    # (N, T+1, D)
         for block in self.blocks:
-            x = block(x)                                    # (N, T+1, D)
+            x = block(x, cross_kv=video_features)  # 每层注入视频特征
         x = self.final_layer(x)                             # (N, T+1, out_channels)
         return x[:, 1:, :]     # (N, T, C)
 

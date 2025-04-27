@@ -1,7 +1,7 @@
 num_cards=4
 bsz_cards=128
 time=$(date +%Y%m%d_%H%M%S)
-run_id=V3_DiTB_noVideo #_${time}
+run_id=V3_DiTB_+Video_freeze2 #_${time}
 mkdir ./${run_id}--image_aug
 
 export WANDB_API_KEY="231c840bf4c83c49cc2241bcce066cb7b75967b2"
@@ -9,7 +9,7 @@ export HF_HOME="/aifs4su/mmcode/worldm/.cache/huggingface"
 export TFDS_DATA_DIR="/aifs4su/mmcode/worldm/open_x_embodiment/rlbench/dataset/rlbench_concat_future_fixed4"
 
 
-CUDA_VISIBLE_DEVICES=0,1,2,3 /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/bin/torchrun --standalone --nnodes 1 --nproc-per-node $num_cards scripts/train_vgmvla.py \
+CUDA_VISIBLE_DEVICES=4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/bin/torchrun --standalone --nnodes 1 --nproc-per-node $num_cards scripts/train_vgmvla.py \
   --vla.type prism-dinosiglip-224px+oxe+diffusion \
   --vla.data_mix custom_finetuning \
   --vla.expected_world_size $num_cards \
@@ -19,7 +19,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env
   --run_root_dir "/aifs4su/mmcode/worldm/videoact/VgmACT" \
   --data_root_dir ${TFDS_DATA_DIR} \
   --image_aug True \
-  --save_interval 5000 \
+  --save_interval 1000 \
   --run_id ${run_id} \
   --repeated_diffusion_steps 8 \
   --future_action_window_size 15 \

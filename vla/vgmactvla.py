@@ -19,11 +19,6 @@ from torch.nn.utils.rnn import pad_sequence
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers import LlamaTokenizerFast
 
-# from prismatic.models.backbones.llm import LLMBackboneshared 
-# from prismatic.models.backbones.llm.prompting import PromptBuilder
-# from prismatic.models.backbones.vision import VisionBackbone
-# from prismatic.models.vlms.base_vlm import VLM
-# from prismatic.models.vlms.prismatic import PrismaticVLM
 from prismatic.overwatch import initialize_overwatch
 from prismatic.util.nn_utils import FusedMLPProjector, LinearProjector, MLPProjector
 
@@ -33,9 +28,11 @@ from vasim_model.cvap import ContrastiveModel
 from vasim_model.conditional_project import ModalityCompressor, TemporalTransformerCondition, VideoTimeStepScheduler, Resampler
 
 import sys 
+import tqdm
 
 # sys.path.insert(1,'/aifs4su/mmcode/worldm/RoboCrafter')
 sys.path.insert(1,'/aifs4su/mmcode/worldm/videoact/VgmACT/DynamiCrafter')
+from lvdm.models.samplers.ddim import DDIMSampler
 from scripts.evaluation.inference import instantiate_from_config,load_model_checkpoint
 from einops import rearrange, repeat
 from timm.models.vision_transformer import Attention, Mlp, RmsNorm, use_fused_attn
@@ -48,6 +45,80 @@ overwatch = initialize_overwatch(__name__)
 IGNORE_INDEX = -100
 
 
+class VGMDDIMSampler(DDIMSampler):
+    @torch.no_grad()
+    def sample(self, S, batch_size, shape, step_limit=None, start_step=0, **kwargs):
+        # 创建时间表
+        self.make_schedule(ddim_num_steps=S,
+                           ddim_discretize=kwargs.get("timestep_spacing", "uniform"),
+                           ddim_eta=kwargs.get("eta", 0.0),
+                           verbose=kwargs.get("schedule_verbose", False))
+
+        if len(shape) == 3:
+            C, H, W = shape
+            size = (batch_size, C, H, W)
+        elif len(shape) == 4:
+            C, T, H, W = shape
+            size = (batch_size, C, T, H, W)
+
+        # 控制采样区间
+        total_timesteps = self.ddim_timesteps
+        if step_limit is not None:
+            end_step = min(start_step + step_limit, len(total_timesteps))
+        else:
+            end_step = len(total_timesteps)
+
+        # 选出子区间 timesteps
+        timesteps = total_timesteps[start_step:end_step]
+
+        # 调用采样函数
+        samples, intermediates = self.ddim_sampling(
+            kwargs.get("conditioning", None),
+            size,
+            timesteps=timesteps,
+            start_index=start_step,
+            **kwargs
+        )
+        return samples, intermediates, total_timesteps, end_step
+
+
+
+    @torch.no_grad()
+    def ddim_sampling(self, cond, shape, timesteps, start_index=0, **kwargs):
+        device = self.model.betas.device
+        b = shape[0]
+
+        x_T = kwargs.get("x_T", None)
+        if x_T is None:
+            img = torch.randn(shape, device=device)
+        else:
+            img = x_T
+
+        intermediates = {'x_inter': [img], 'pred_x0': [img]}
+        time_range = np.flip(timesteps)
+        total_steps = timesteps.shape[0]
+
+        iterator = tqdm(time_range, desc='DDIM Sampler', total=total_steps) if kwargs.get("verbose", True) else time_range
+
+        for i, step in enumerate(iterator):
+            index = len(self.ddim_timesteps) - (start_index + i) - 1
+            ts = torch.full((b,), step, device=device, dtype=torch.long)
+
+            img, pred_x0 = self.p_sample_ddim(img, cond, ts, index=index, **kwargs)
+
+            if kwargs.get("callback", None):
+                kwargs["callback"](i)
+            if kwargs.get("img_callback", None):
+                kwargs["img_callback"](pred_x0, i)
+
+            if index % kwargs.get("log_every_t", 100) == 0 or index == total_steps - 1:
+                intermediates['x_inter'].append(img)
+                intermediates['pred_x0'].append(pred_x0)
+
+        return img, intermediates
+
+    
+
 class VGM(nn.Module):
     def __init__(self,
                  config_yaml: str,
@@ -58,7 +129,7 @@ class VGM(nn.Module):
                  mode='fix',
                  mask_video_prob = 0.2,
                  load_concate_frame=True,
-                 use_vgm_prob = 0.8):
+                 use_vgm_prob = 0.95):
         super().__init__()
         from omegaconf import OmegaConf
         import sys 
@@ -89,7 +160,7 @@ class VGM(nn.Module):
         assert os.path.exists(self.ckpt_path), "Error: checkpoint Not Found!"
         self.vgm = load_model_checkpoint(vgm, ckpt_path)
         self.init_projection(proj_dim)
-        self.all_module_keys=['projection','image_compressor','lang_compressor']
+        self.all_module_keys=['projection','state_compressor']
         for module_keys, _ in self.vgm.named_children():
             self.all_module_keys.append("vgm." + module_keys)
 
@@ -143,12 +214,11 @@ class VGM(nn.Module):
         
         self.projection = TemporalTransformerCondition.from_input_shape(
             input_shape=(c, t, h, w),  # (C, T, H, W)
-            proj_dim=self.proj_dim,               # 输出给 diffusion 的 cond 向量维度
-            target_model_size_mb=100    # 目标模型大小（可选）
+            proj_dim=768, # 输出给 diffusion 的 cond 向量维度, TODO,   现在仅仅适配DiT-B 768
+            target_model_size_mb=200    # 目标模型大小（可选）
         )
 
-        self.state_compressor = Resampler(
-                                            dim=self.proj_dim,          # latent内部处理维度
+        self.state_compressor = Resampler(  dim=self.proj_dim,          # latent内部处理维度
                                             output_dim=self.proj_dim,   # 最后输出特征维度
                                             embedding_dim=1024,         # 输入tokens的特征维度
                                             num_queries=1,              # 压成2个token
@@ -169,11 +239,9 @@ class VGM(nn.Module):
 
         for param in self.projection.parameters():
             param.requires_grad = True
-        for param in self.image_compressor.parameters():
+        for param in self.state_compressor.parameters():
             param.requires_grad = True
-        for param in self.lang_compressor.parameters():
-            param.requires_grad = True
-        
+
         self._init_unet_lora(use_lora=use_lora)
 
     def _init_unet_lora(self, use_lora):
@@ -317,50 +385,202 @@ class VGM(nn.Module):
         else:
             kwargs.update({"unconditional_conditioning_img_nonetext": None})
 
-        # === Sample Noise and Time Step ===
-        x_start = z.detach().clone()
-        noise = torch.randn_like(x_start)
-        if train:
-            t_vid = self.scheduler.sample_train_timestep(batch_size=x_start.shape[0])
-        elif not train and fix_video_timesteps is not None:
-            t_vid = self.scheduler.get_infer_timestep(batch_size=x_start.shape[0], t_value=fix_video_timesteps)
-        x_noisy = self.vgm.q_sample(x_start=x_start, t=t_vid, noise=noise)
-
-        # === Apply Conditional Mask ===
-        cond_mask = self.create_time_varying_mask(z.shape)
-        if cond_mask is not None and not train:
-            x_noisy = x_start * cond_mask + (1. - cond_mask) * x_noisy
-
         # === Cognition Features ===
         state_cognition_features = self.state_compressor(torch.cat([cond_emb, img_emb], dim=1))           # [B, 1, D]
 
-        # === Video Feature Masking/Projection ===
-        # # only Masking when training
-        # if train and torch.rand(1).item() < self.mask_video_prob:
-        #     video_features = torch.zeros_like(cond_cognition_features)    # [B, 1, D]
-        #     cognition_features = torch.cat([video_features, img_cognition_features, cond_cognition_features], dim=1)
-        #     return (cognition_features, 0, x_start) if train else cognition_features
+        # === Sample Noise and Time Step ===
+        x_start = z.detach().clone()
+        noise = torch.randn_like(x_start)
+        # if train:
+        #     t_vid = self.scheduler.sample_train_timestep(batch_size=x_start.shape[0])
+        # elif not train and fix_video_timesteps is not None:
+        #     t_vid = self.scheduler.get_infer_timestep(batch_size=x_start.shape[0], t_value=fix_video_timesteps)
+        # x_noisy = self.vgm.q_sample(x_start=x_start, t=t_vid, noise=noise)
+
+        # # === Apply Conditional Mask ===
+        # # === inference pass ===
+        if not train: # inference forward pass
+            # x_noisy = self.vgm.q_sample(x_start=x_start, t=t_vid, noise=noise)
+            
+            t_vid_blur = self.scheduler.sample_train_timestep(batch_size=x_start.shape[0])
+            x_noisy_blur = self.vgm.q_sample(x_start=x_start, t=t_vid_blur, noise=noise)
+
+            cond_mask = self.create_time_varying_mask(z.shape)
+            if cond_mask is not None:
+                x_noisy = self.vgm.q_sample(x_start=x_start, t=t_vid_blur, noise=noise)
+                x_noisy = x_start * cond_mask + (1. - cond_mask) * x_noisy
+
+            x0_hat_blur_v = self.vgm.apply_model(x_noisy_blur, t_vid_blur, cond, **kwargs)
+            video_features = self.projection(x0_hat_blur_v, t_vid_blur)
+            cognition_features = [state_cognition_features,  video_features]
+            return cognition_features, x0_hat_blur_v
 
         # # === Full Forward or Skip Training ===
-        # # only skil when training
-        # use_vgm = True if not train else (torch.rand(1).item() < self.use_vgm_prob)
-        # if use_vgm:
-        #     video_samples = self.vgm.apply_model(x_noisy, t_vid, cond, **kwargs)
-        #     x0_hat_target = self.vgm.predict_start_from_z_and_v(x_noisy, t_vid, video_samples)
-        # else:
-        #     x0_hat_target = x_noisy
+        elif train:
+        # === Sample blurry ===
+            t_vid_blur = self.scheduler.sample_train_timestep(batch_size=x_start.shape[0])
+            x_noisy_blur = self.vgm.q_sample(x_start=x_start, t=t_vid_blur, noise=noise)
 
-        # # === Final Cognition Feature Assembly ===
-        # video_features = self.projection(x0_hat_target,t_vid)
-        # cognition_features = torch.cat([img_cognition_features, cond_cognition_features], dim=1)
+            # === Sample sharp ===
+            t_vid_sharp = self.scheduler.get_near_final_timestep(batch_size=x_start.shape[0])
+            x_noisy_sharp = self.vgm.q_sample(x_start=x_start, t=t_vid_sharp, noise=noise)
 
-        # === Compute Loss (if Training) ===
-        # if train:
-            # video_loss = self.get_video_loss(x_start, x0_hat_target, noise, t_vid)
+            # === Get video_features ===
+            use_vgm = True if not train else (torch.rand(1).item() < self.use_vgm_prob)
+            if use_vgm:
+                x0_hat_blur_v = self.vgm.apply_model(x_noisy_blur, t_vid_blur, cond, **kwargs)
+                x0_hat_blur = x0_hat_blur_v # use v prediction for action generation
+                # x0_hat_blur = self.vgm.predict_start_from_z_and_v(x_noisy_blur, t_vid_blur, x0_hat_blur_v)
+                x0_hat_sharp_v = self.vgm.apply_model(x_noisy_sharp, t_vid_sharp, cond, **kwargs)
+                x0_hat_sharp = x0_hat_sharp_v.detach().clone()
+                # x0_hat_sharp = self.vgm.predict_start_from_z_and_v(x_noisy_sharp, t_vid_sharp, x0_hat_sharp_v)
+            else:
+                x0_hat_blur = x_noisy_blur
+                x0_hat_sharp = x_noisy_sharp
+
+            video_features_blur = self.projection(x0_hat_blur, t_vid_blur)
+            video_features_sharp = self.projection(x0_hat_sharp, t_vid_sharp)
+            # === Compute Consistency Loss ===
+            consistency_loss = torch.nn.functional.mse_loss(video_features_blur, video_features_sharp.detach().clone())
+            video_loss = self.get_video_loss(x_start, x0_hat_blur, x_noisy_blur, t_vid_blur)
+
+            if torch.rand(1).item() < self.use_vgm_prob: # unconditional share the same rate with use_vgm
+                video_features_blur = torch.zeros_like(video_features_blur)
+            cognition_features = [state_cognition_features,  video_features_blur]#[(B, 1, D),(B,S,D)] 
+
             # return cognition_features, video_loss, x0_hat_target
-        cognition_features = state_cognition_features
-        return cognition_features
+            return cognition_features, consistency_loss, video_loss
 
+    def save_results_video_seperate(self, prompt, samples, filename, fakedir, fps=10, loop=False):
+        prompt = prompt[0] if isinstance(prompt, list) else prompt
+        videos = [samples]  # b, c, t, h, w
+        savedirs = [fakedir]
+
+        for idx, video in enumerate(videos):
+            if video is None:
+                continue
+
+            video = video.detach().cpu()
+            if loop:
+                video = video[:, :, :-1, ...]  # remove last frame if looping
+
+            video = torch.clamp(video.float(), -1., 1.)
+            n = video.shape[0]
+
+            for i in range(n):
+                grid = video[i, ...]  # c, t, h, w
+                grid = (grid + 1.0) / 2.0  # normalize to [0, 1]
+                grid = (grid * 255).to(torch.uint8)  # scale to [0, 255]
+                grid = grid.permute(1, 2, 3, 0).contiguous()  # (t, h, w, c)
+
+                # 拼接所有帧在宽度方向 (axis=2)
+                grid_image = torch.cat([frame for frame in grid], dim=1)  # (h, t*w, 3)
+
+                # 转成 PIL Image 并保存为 PNG
+                image = Image.fromarray(grid_image.numpy())
+                save_dir = savedirs[idx].replace('samples', 'samples_separate')
+                os.makedirs(save_dir, exist_ok=True)
+                image_path = os.path.join(save_dir, f'{filename.split(".")[0]}_sample{i}.png')
+
+                # print(f"Saving prediction image to {image_path}")
+                image.save(image_path)
+
+    def video_ddim_forward(self, prompts, images, noise_shape, n_samples=1, ddim_steps=50, ddim_eta=1., \
+                    unconditional_guidance_scale=1.0, cfg_img=None, fs=4, text_input=False, multiple_cond_cfg=False, loop=False, interp=False, timestep_spacing='uniform', guidance_rescale=0.0, **kwargs):
+        device = self.vgm.model.diffusion_model.out[2].weight.device
+        ddim_sampler = DDIMSampler(self.vgm)
+        batch_size = noise_shape[0]
+        fs = torch.tensor([fs] * batch_size, dtype=torch.long, device=device)
+        images = torch.stack(images, dim=0).to(device) # b c h w
+        if len(images.shape)==5: # video
+            videos = images
+            images = images[:,:,0,:,:]
+        else:
+            videos = images.unsqueeze(2)#bcthw #TODO
+            videos = repeat(videos, 'b c t h w -> b c (repeat t) h w', repeat=self.video_length)
+
+        if not text_input:
+            prompts = [""]*batch_size
+
+        img = videos[:,:,0] #bchw
+        img_emb = self.vgm.embedder(img) ## blc
+        img_emb = self.vgm.image_proj_model(img_emb)
+        cond_emb = self.vgm.get_learned_conditioning(prompts)
+        cond = {"c_crossattn": [torch.cat([cond_emb,img_emb], dim=1)]}
+        if self.vgm.model.conditioning_key == 'hybrid':
+            b, c, t, h, w = videos.shape
+            x = rearrange(videos, 'b c t h w -> (b t) c h w')
+            z = self.vgm.encode_first_stage(x)
+            z = rearrange(z, '(b t) c h w -> b c t h w', b=b, t=t)
+            if loop or interp:
+                img_cat_cond = torch.zeros_like(z)
+                img_cat_cond[:,:,0,:,:] = z[:,:,0,:,:]
+                img_cat_cond[:,:,-1,:,:] = z[:,:,-1,:,:]
+            else:
+                img_cat_cond = z[:,:,:1,:,:]
+                img_cat_cond = repeat(img_cat_cond, 'b c t h w -> b c (repeat t) h w', repeat=z.shape[2])
+            cond["c_concat"] = [img_cat_cond] # b c 1 h w
+        
+        if unconditional_guidance_scale != 1.0:
+            if self.vgm.uncond_type == "empty_seq":
+                prompts = batch_size * [""]
+                uc_emb = self.vgm.get_learned_conditioning(prompts)
+            elif self.vgm.uncond_type == "zero_embed":
+                uc_emb = torch.zeros_like(cond_emb)
+            uc_img_emb = self.vgm.embedder(torch.zeros_like(img)) ## b l c
+            uc_img_emb = self.vgm.image_proj_model(uc_img_emb)
+            uc = {"c_crossattn": [torch.cat([uc_emb,uc_img_emb],dim=1)]}
+            if self.vgm.model.conditioning_key == 'hybrid':
+                uc["c_concat"] = [img_cat_cond]
+        else:
+            uc = None
+
+        ## we need one more unconditioning image=yes, text=""
+        if multiple_cond_cfg and cfg_img != 1.0:
+            uc_2 = {"c_crossattn": [torch.cat([uc_emb,img_emb],dim=1)]}
+            if self.vgm.model.conditioning_key == 'hybrid':
+                uc_2["c_concat"] = [img_cat_cond]
+            kwargs.update({"unconditional_conditioning_img_nonetext": uc_2})
+        else:
+            kwargs.update({"unconditional_conditioning_img_nonetext": None})
+
+        z0 = None
+        cond_mask = self.create_time_varying_mask(z.shape)
+        
+        batch_variants = []
+        for _ in range(n_samples):
+
+            if z0 is not None:
+                cond_z0 = z0.clone()
+                kwargs.update({"clean_cond": True})
+            else:
+                cond_z0 = None
+            if ddim_sampler is not None:
+
+                samples, _ = ddim_sampler.sample(S=ddim_steps,
+                                                x_T=z,
+                                                conditioning=cond,
+                                                batch_size=batch_size,
+                                                shape=noise_shape[1:],
+                                                verbose=False,
+                                                unconditional_guidance_scale=unconditional_guidance_scale,
+                                                unconditional_conditioning=uc,
+                                                eta=ddim_eta,
+                                                cfg_img=cfg_img, 
+                                                mask=cond_mask,
+                                                x0=img_cat_cond,
+                                                fs=fs,
+                                                timestep_spacing=timestep_spacing,
+                                                guidance_rescale=guidance_rescale,
+                                                **kwargs
+                                                )
+
+            ## reconstruct from latent to pixel space
+            batch_images = self.vgm.decode_first_stage(samples)
+            batch_variants.append(batch_images)
+        ## variants, batch, c, t, h, w
+        batch_variants = torch.stack(batch_variants)
+        return batch_variants.permute(1, 0, 2, 3, 4, 5)
 
 class VgmACT(nn.Module):
     def __init__(
@@ -392,11 +612,11 @@ class VgmACT(nn.Module):
         c = self.vgm.model_config['params']['channels']
         t = self.vgm.model_config['params']['unet_config']['params']['temporal_length']
 
-        self.cvap = ContrastiveModel(
-            image_channels=c,
-            pose_dim=action_dim,
-            embedding_dim=128,
-        )
+        # self.cvap = ContrastiveModel(
+        #     image_channels=c,
+        #     pose_dim=action_dim,
+        #     embedding_dim=128,
+        # )
 
         if self.use_ema:
             self.ema_diffusion = deepcopy(self.action_model)
@@ -451,15 +671,15 @@ class VgmACT(nn.Module):
         #     f"# Parameters after re-set (in millions): {num_params / 10**6:.3f} Total, {num_trainable_params / 10**6:.3f} Trainable"
         # )
 
-        cognition_features = self.vgm.one_ddim_step_forward(prompts=lang,images=pixel_values,train=True) # B, 1, D
+        cognition_features, consistency_loss, video_loss = self.vgm.one_ddim_step_forward(prompts=lang,images=pixel_values,train=True) # B, 1, D
 
         actions_history = actions[:,0:self.past_action_window_size,:]
         actions_future = actions[:, -(self.future_action_window_size+1):, :]
-        
         # Repeat 'actions' 'repeated_diffusion_steps' times, resulting in [repeated_diffusion_steps*B, T, D]
         actions_repeated = actions_future.repeat(repeated_diffusion_steps, 1, 1)
         actions_history_repeated = actions_history.repeat(repeated_diffusion_steps, 1, 1)
-        cognition_features_repeated = cognition_features.repeat(repeated_diffusion_steps, 1, 1) # [repeated_diffusion_steps*B, 1, D]
+        cognition_features_repeated = [cognition_features[0].repeat(repeated_diffusion_steps, 1, 1),
+                                       cognition_features[1].repeat(repeated_diffusion_steps, 1, 1)]# [repeated_diffusion_steps*B, 1, D]
 
         # Action model forward and compute loss
         act_loss = self.action_model.loss(actions_repeated, cognition_features_repeated)
@@ -476,8 +696,8 @@ class VgmACT(nn.Module):
 
 
         # loss = act_loss + video_loss.mean()
-        loss = act_loss 
-        return loss,  cognition_features, 0
+        loss = (act_loss, consistency_loss.mean(), video_loss.mean())
+        return loss,  cognition_features
 
     def get_fsdp_wrapping_policy(self) -> Callable:
         """Return an FSDP wrapping policy that applies to `vgm.model`, `vgm.projection`, and specific prismatic modules."""
@@ -565,11 +785,10 @@ class VgmACT(nn.Module):
 
             try:
                 vgmact.vgm.projection.load_state_dict(model_state_dict["vgm.projection"])
-                vgmact.vgm.image_compressor.load_state_dict(model_state_dict["vgm.image_compressor"])
-                vgmact.vgm.lang_compressor.load_state_dict(model_state_dict["vgm.lang_compressor"])
-                overwatch.info("Loading vgm.projection,vgm.lang_compressor,vgm.image_compressor successfully.")
+                vgmact.vgm.image_compressor.load_state_dict(model_state_dict["vgm.state_compressor"])
+                overwatch.info("Loading vgm.projection,vgm.state_compressor successfully.")
             except:
-                overwatch.warning("No vgm.lang_compressor,vgm.image_compressor found in the pretrained checkpoint. Initializing a new one.")
+                overwatch.warning("No vgm.state_compressor found in the pretrained checkpoint. Initializing a new one.")
 
             missing_keys_info = vgmact.vgm.vgm.model.load_state_dict(model_state_dict["vgm.vgm.model"], strict=False)
             if not missing_keys_info.missing_keys and not missing_keys_info.unexpected_keys:
@@ -596,10 +815,14 @@ class VgmACT(nn.Module):
                     # 更新模型参数
                     model_dict.update(compatible_dict)
                     vgmact.action_model.load_state_dict(model_dict)
+                    overwatch.info(f"=>> Loaded [bold]{len(compatible_dict)}[/] parameters from [bold]{pretrain_action_model}[/]:")
 
-        if vgm_param_mode =='freeze':
+                
+        if vgm_param_mode=='freeze':
             for name, param in vgmact.vgm.vgm.named_parameters():
                 param.requires_grad = False
+        elif vgm_param_mode=='full':
+            vgmact.vgm.set_trainable_param(use_lora=False)
             # for name, param in vgmact.action_model.named_parameters():
             #     param.requires_grad = False
         
@@ -623,8 +846,9 @@ class VgmACT(nn.Module):
         cfg_scale: float = 1.5, 
         use_ddim: bool = False,
         num_ddim_steps: int = 5,
-        dual_system: bool = False,
-        dual_system_video: list = None,
+        pred_dynamic = None,
+        return_pred_dynamic: list = None,
+        video_save_path=None,
         **kwargs: str
     ) -> np.ndarray:
         """
@@ -643,41 +867,37 @@ class VgmACT(nn.Module):
 
         # TODO Image transform
         device = self.vgm.vgm.model.diffusion_model.out[2].weight.device
+        self.vgm.load_concate_frame = False
         image_transform = self.vgm.get_image_transform()
         pixel_values = image_transform(image).to(device)
 
         # print(pixel_values.shape)
-        cognition_features = self.vgm.one_ddim_step_forward(prompts=[instruction],
+        cognition_features,video_samples = self.vgm.one_ddim_step_forward(prompts=[instruction],
                                                             images=[pixel_values],
-                                                            train=False,
-                                                            fix_video_timesteps=918) # [B, 1, D]
+                                                            train=False) # [B, 1, D]
         # print(cognition_features.shape)
-        B = cognition_features.shape[0]
+        B = cognition_features[0].shape[0]
         model_dtype = next(self.action_model.net.parameters()).dtype
         # Sample random noise
-        noise = torch.randn(B, self.future_action_window_size+1, self.action_model.in_channels, device=cognition_features.device).to(model_dtype)  #[B, T, D]
+        noise = torch.randn(B, self.future_action_window_size+1, self.action_model.in_channels, device=cognition_features[0].device).to(model_dtype)  #[B, T, D]
 
         using_cfg = cfg_scale > 1.0
         # Setup classifier-free guidance:
         if using_cfg:
             noise = torch.cat([noise, noise], 0)
-            # uncondition_video = self.action_model.net.z_embedder_video.uncondition
-            uncondition_image = self.action_model.net.z_embedder_image.uncondition
-            uncondition_text = self.action_model.net.z_embedder_text.uncondition
-            # uncondition_video = uncondition_video.unsqueeze(0)  #[1, D]
-            # uncondition_video = uncondition_video.expand(B, 1, -1) #[B, 1, D]
-            uncondition_image = uncondition_image.unsqueeze(0)  #[1, D]
-            uncondition_image = uncondition_image.expand(B, 1, -1) #[B, 1, D]
-            uncondition_text = uncondition_text.unsqueeze(0)  #[1, D]
-            uncondition_text = uncondition_text.expand(B, 1, -1) #[B, 1, D]
-            uncondition = torch.cat([uncondition_image, uncondition_text], 1)
-            z = torch.cat([cognition_features, uncondition], 0)
+            uncondition = self.action_model.net.z_embedder.uncondition
+            uncondition = uncondition.unsqueeze(0)  #[1, D]
+            uncondition = uncondition.expand(B, 1, -1) #[B, 1, D]
+            uncond_feature = torch.zeros_like(cognition_features[1])
+            z = [torch.cat([cognition_features[0], uncondition], 0),
+                 torch.cat([cognition_features[1], uncond_feature], 0)]
             cfg_scale = cfg_scale
             model_kwargs = dict(z=z, cfg_scale=cfg_scale)
             sample_fn = self.action_model.net.forward_with_cfg
         else:
             model_kwargs = dict(z=cognition_features)
             sample_fn = self.action_model.net.forward
+
 
         # DDIM Sampling
         if use_ddim and num_ddim_steps is not None:
@@ -689,7 +909,7 @@ class VgmACT(nn.Module):
                                                                 clip_denoised=False,
                                                                 model_kwargs=model_kwargs,
                                                                 progress=False,
-                                                                device=cognition_features.device,
+                                                                device=cognition_features[0].device,
                                                                 eta=0.0
                                                                 )
         else:
@@ -700,7 +920,7 @@ class VgmACT(nn.Module):
                                                                     clip_denoised=False,
                                                                     model_kwargs=model_kwargs,
                                                                     progress=False,
-                                                                    device=cognition_features.device
+                                                                    device=cognition_features[0].device
                                                                     )
         if using_cfg:
             samples, _ = samples.chunk(2, dim=0)  # Remove null class samples
@@ -718,8 +938,20 @@ class VgmACT(nn.Module):
             normalized_actions,
         )
 
-        return actions, normalized_actions
+        if video_save_path is not None and return_pred_dynamic:
+            step_pred_video = self.vgm.vgm.decode_first_stage(video_samples)
+            predict_video = self.vgm.video_ddim_forward(prompts=[instruction], 
+                                                        images=[pixel_values], 
+                                                        noise_shape=step_pred_video.shape,
+                                                        ddim_steps=10)[:,0,...]# b n c t h w ->  b c t h w
+            show_video = torch.cat([predict_video,step_pred_video],dim=3)
+            self.vgm.save_results_video_seperate(prompt=instruction,
+                                                 samples=show_video,
+                                                 filename=instruction.replace(" ","_"),
+                                                 fakedir=video_save_path)
+            return actions, normalized_actions, video_samples
 
+        return actions, normalized_actions
     @staticmethod
     def _check_unnorm_key(norm_stats, unnorm_key):
         if unnorm_key is None:

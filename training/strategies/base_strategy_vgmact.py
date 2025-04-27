@@ -203,7 +203,7 @@ class VgmACTTrainingStrategy(ABC):
                     ):
                         # TODO
                         
-                        loss, output, contrastive_loss = self.vlm(
+                        loss, output = self.vlm(
                             input_ids=batch["input_ids"],
                             attention_mask=batch["attention_mask"],
                             pixel_values=batch["pixel_values"],
@@ -212,11 +212,12 @@ class VgmACTTrainingStrategy(ABC):
                             repeated_diffusion_steps = self.repeated_diffusion_steps,
                             lang=batch["lang"]
                         )
-
+                    loss, consistency_loss, video_loss = loss
                     # Commit Loss (Prior to Gradient Accumulation Normalization)
                     metrics.commit(loss=loss)
-                    metrics.commit(contrastive_loss=contrastive_loss)
-                    normalized_loss = (loss+contrastive_loss) / self.grad_accumulation_steps
+                    metrics.commit(consistency_loss=consistency_loss)
+                    metrics.commit(video_loss=video_loss)
+                    normalized_loss = (loss+consistency_loss+video_loss) / self.grad_accumulation_steps
                     normalized_loss.backward()
 
                     # Step =>> Only if Done w/ Gradient Accumulation
@@ -301,7 +302,7 @@ class VgmACTTrainingStrategy(ABC):
                     "cuda", dtype=self.mixed_precision_dtype, enabled=self.enable_mixed_precision_training
                 ):
                     if action_model:
-                        loss, output, contrastive_loss = self.vlm(
+                        loss, output = self.vlm(
                             input_ids=batch["input_ids"],
                             attention_mask=batch["attention_mask"],
                             actions=batch["actions"],
@@ -323,11 +324,14 @@ class VgmACTTrainingStrategy(ABC):
                         loss = output.loss
 
                 # Commit Loss =>> Backward!
+                loss, consistency_loss, video_loss = loss
+                # Commit Loss (Prior to Gradient Accumulation Normalization)
                 metrics.commit(loss=loss)
-                # metrics.commit(contrastive_loss=contrastive_loss)
-                
-                normalized_loss = (loss+contrastive_loss) / self.grad_accumulation_steps
+                metrics.commit(consistency_loss=consistency_loss)
+                metrics.commit(video_loss=video_loss)
+                normalized_loss = (loss+consistency_loss+video_loss) / self.grad_accumulation_steps
                 normalized_loss.backward()
+
 
                 # === Gradient Step ===
                 # Step =>> Only if Done w/ Gradient Accumulation

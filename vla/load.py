@@ -269,7 +269,7 @@ def load_vgmvla(
     overwatch.info(f"Loading Video Generation Backbone from Checkpoint")
     vgm = VGM(config_json,
               model_id_or_path,
-              mode=vgm_param_mode)
+              mode=vgm_param_mode,)
 
     # Load VLM using `from_pretrained` (clobbers HF syntax... eventually should reconcile)
     overwatch.info(f"Loading Video Generation Action Model from Checkpoint")
