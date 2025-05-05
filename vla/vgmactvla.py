@@ -129,7 +129,8 @@ class VGM(nn.Module):
                  mode='full',
                  mask_video_prob = 0.2,
                  load_concate_frame=True,
-                 use_vgm_prob = 0.95):
+                 use_vgm_prob = 0.95,
+                 video_loss_rate=0.01):
         super().__init__()
         from omegaconf import OmegaConf
         import sys 
@@ -142,6 +143,7 @@ class VGM(nn.Module):
         self.fake_ddpm_step = fake_ddpm_step
         perframe_ae = True
         self.mask_video_prob = mask_video_prob
+        self.video_loss_rate = video_loss_rate
         
         config = OmegaConf.load(config_yaml)
         self.model_config = config.pop("model", OmegaConf.create())
@@ -185,12 +187,13 @@ class VGM(nn.Module):
         self.load_concate_frame=load_concate_frame
         self.use_vgm_prob = use_vgm_prob
 
-        if mode=='freeze':
-            self.vgm.eval()
+        # 在vgm load的时候set
+        # if mode=='freeze':
+        #     self.vgm.eval()
         # elif mode=='lora':
         #     self.set_trainable_param(mode=mode)
-        elif mode=='full':
-            self.set_trainable_param(mode=mode)
+        # elif mode=='full':
+        #     self.set_trainable_param(mode=mode)
     
         self.vgm.embedder.eval()
         self.vgm.image_proj_model.eval()
@@ -233,18 +236,18 @@ class VGM(nn.Module):
         for param in self.vgm.parameters():
             param.requires_grad = False
 
+        # 仅解冻 `vgm.model` 和 `projection`
         for param in self.projection.parameters():
             param.requires_grad = True
         for param in self.state_compressor.parameters():
             param.requires_grad = True
 
-        if mode == 'full':
-        # 仅解冻 `vgm.model`
+
+        if mode=='lora':
+            self._init_unet_lora(use_lora=True)
+        elif mode=='full':
             for param in self.vgm.model.diffusion_model.parameters():
                 param.requires_grad = True
-
-        elif mode == 'lora':
-            self._init_unet_lora(use_lora=True)
 
     def _init_unet_lora(self, use_lora):
         import peft
@@ -276,6 +279,13 @@ class VGM(nn.Module):
     def forward(self):
         pass
 
+
+    def update_video_loss(self, train_idx):
+        if train_idx == 2000:
+            self.video_loss_rate == 0.0001
+        if train_idx == 4000:
+            self.video_loss_rate = 0
+        
     def create_time_varying_mask(self, shape, rate=10, device='cuda'):
         # TODO mask 还没加上，不完全是first frame condition
         b, c, t, h, w = shape
@@ -427,7 +437,7 @@ class VGM(nn.Module):
 
             t_vid_sharp = torch.full(
                 (x_start.shape[0],), 
-                fill_value=999,  # 训练sharp分支，接近最后一步
+                fill_value=1,  # 训练sharp分支，接近最后一步
                 dtype=torch.long, 
                 device=x_start.device
             )
@@ -448,10 +458,17 @@ class VGM(nn.Module):
             video_features_blur = self.projection(x0_hat_blur, t_vid_blur)
             video_features_sharp = self.projection(x0_hat_sharp, t_vid_sharp)
 
-            consistency_loss = torch.nn.functional.mse_loss(video_features_blur, video_features_sharp.detach())
-            video_loss = self.get_video_loss(x_start, x0_hat_blur, x_noisy_blur_copy, t_vid_blur)
-
-            if torch.rand(1).item() < 0.2: # dropout video feature, for cfg generation
+            consistency_loss = torch.nn.functional.mse_loss(video_features_blur, video_features_sharp.detach().clone())
+            # predict_video = self.vgm.video_ddim_forward(prompts=[instruction], 
+            #                                 images=[pixel_values], 
+            #                                 noise_shape=step_pred_video.shape,
+            #                                 ddim_steps=10)[:,0,...]# b n c t h w ->  b c t h w
+            video_loss = self.get_video_loss(x_start, x0_hat_blur, x_noisy_blur_copy, t_vid_blur)*self.video_loss_rate
+            
+            if not self.load_concate_frame:
+                consistency_loss*=0
+                
+            if torch.rand(1).item() < self.mask_video_prob: # dropout video feature, for cfg generation
                 video_features_blur = torch.zeros_like(video_features_blur)
 
             cognition_features = [state_cognition_features, video_features_blur]
@@ -822,7 +839,13 @@ class VgmACT(nn.Module):
                         use_ema = use_ema,
                         norm_stats = norm_stats,
                         )
-
+        if vgm_param_mode=='freeze':
+            for name, param in vgmact.vgm.vgm.named_parameters():
+                param.requires_grad = False
+        elif vgm_param_mode=='full':
+            vgmact.vgm.set_trainable_param(mode=vgm_param_mode)
+        elif vgm_param_mode=='lora':
+            vgmact.vgm.set_trainable_param(mode=vgm_param_mode)
             
         if full_ckpt is not None:
             model_state_dict=torch.load(full_ckpt, map_location="cpu")["model"]
@@ -830,16 +853,20 @@ class VgmACT(nn.Module):
             overwatch.info(
                 f" ===== Loading [bold blue] Pretrained Weight [/] ====\n"
                 )
+                
             if "action_model" in model_state_dict:
                 vgmact.action_model.load_state_dict(model_state_dict["action_model"])
                 overwatch.info(f"=>> Loading Action from [bold]{full_ckpt}[/] successfully\n")
+                # ✨ 两行代码加上cross_attn_gate
+                # for name, param in vgmact.action_model.named_parameters(): #TODO 训练的时候这样凑合加一下
+                #     if 'cross_attn_gate' in name:
+                #         param.data += 0.2
                 if "ema_diffusion" in model_state_dict and use_ema:
                     vgmact.ema_diffusion.load_state_dict(model_state_dict["ema_diffusion"])
                 elif use_ema:
                     vgmact.ema_diffusion.load_state_dict(model_state_dict["action_model"])
             else:
                 overwatch.warning("No ActionModel found in the pretrained checkpoint. Initializing a new one.")
-           
 
             try:
                 vgmact.vgm.projection.load_state_dict(model_state_dict["vgm.projection"])
@@ -848,11 +875,11 @@ class VgmACT(nn.Module):
             except:
                 overwatch.warning("No vgm.state_compressor found in the pretrained checkpoint. Initializing a new one.")
 
-            missing_keys_info = vgmact.vgm.vgm.model.load_state_dict(model_state_dict["vgm.vgm.model"], strict=False)
-            if not missing_keys_info.missing_keys and not missing_keys_info.unexpected_keys:
-                overwatch.info("Loading [bold blue] vgm.model [/] successfully.")
-            else:
-                overwatch.warning(f"Loading vgm.model [bold red] warning: Some missing keys:{missing_keys_info.missing_keys}, or  unexpected keys:{missing_keys_info.unexpected_keys}. [/]")
+            # missing_keys_info = vgmact.vgm.vgm.model.load_state_dict(model_state_dict["vgm.vgm.model"], strict=False)
+            # if not missing_keys_info.missing_keys and not missing_keys_info.unexpected_keys:
+            #     overwatch.info("Loading [bold blue] vgm.model [/] successfully.")
+            # else:
+            #     overwatch.warning(f"Loading vgm.model [bold red] warning: Some missing keys:{missing_keys_info.missing_keys}, or  unexpected keys:{missing_keys_info.unexpected_keys}. [/]")
 
         elif pretrain_action_model is not None:
             overwatch.info(f"Using pretrained action model from {pretrain_action_model}")
@@ -874,27 +901,17 @@ class VgmACT(nn.Module):
                     model_dict.update(compatible_dict)
                     vgmact.action_model.load_state_dict(model_dict)
                     overwatch.info(f"=>> Loaded [bold]{len(compatible_dict)}[/] parameters from [bold]{pretrain_action_model}[/]:")
+
+                
+        # if vgm_param_mode=='freeze':
+        #     for name, param in vgmact.vgm.vgm.named_parameters():
+        #         param.requires_grad = False
+        # elif vgm_param_mode=='full':
+        #     vgmact.vgm.set_trainable_param(use_lora=False)
+        #     # for name, param in vgmact.action_model.named_parameters():
+        #     #     param.requires_grad = False
         
-        if vgm_param_mode=='freeze':
-            for name, param in vgmact.vgm.vgm.named_parameters():
-                param.requires_grad = False
-        elif vgm_param_mode=='full':
-        # 仅解冻 `vgm.model`
-            for name, param in vgmact.vgm.vgm.model.diffusion_model.named_parameters():
-                param.requires_grad = True
-        elif vgm_param_mode=='lora':
-            import peft
-            lora_config = peft.LoraConfig(
-                r=4,
-                lora_alpha=1,
-                # only diffusion_model has these modules
-                target_modules=["to_k", "to_v", "to_q"],
-                lora_dropout=0.0,
-            )
-            vgmact.vgm.vgm.model.diffusion_model = peft.get_peft_model(
-                vgmact.vgm.vgm.model.diffusion_model, lora_config)
-            vgmact.vgm.vgm.model.diffusion_model.print_trainable_parameters()
-        
+        # # vgmact.check_trainable_param()
         return vgmact        
     
     

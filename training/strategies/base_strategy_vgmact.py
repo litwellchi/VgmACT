@@ -331,7 +331,7 @@ class VgmACTTrainingStrategy(ABC):
                 metrics.commit(video_loss=video_loss)
                 normalized_loss = (loss+consistency_loss+video_loss) / self.grad_accumulation_steps
                 normalized_loss.backward()
-
+                self.vlm.vgm.update_video_loss(train_idx)
 
                 # === Gradient Step ===
                 # Step =>> Only if Done w/ Gradient Accumulation

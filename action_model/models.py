@@ -153,7 +153,7 @@ class DiTBlock(nn.Module):
         if self.cross_attn_enabled:
             self.norm_cross = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
             self.cross_attn = nn.MultiheadAttention(embed_dim=hidden_size, num_heads=num_heads, batch_first=True)
-            self.cross_attn_gate = nn.Parameter(torch.zeros(1))  # 学习一个 Residual 权重
+            self.cross_attn_gate = nn.Parameter(torch.ones(1))  # 学习一个 Residual 权重
 
         self.norm2 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
         mlp_hidden_dim = int(hidden_size * mlp_ratio)

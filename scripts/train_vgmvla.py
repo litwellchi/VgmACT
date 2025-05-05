@@ -98,6 +98,7 @@ class TrainConfig:
     use_ema: bool = False                                           # EMA version of action model
     action_dim: int = 7                                             # Dimension of action space
     pretrain_action_model: Optional[str] = None  
+    use_future_frame: bool = False
     
     def __post_init__(self) -> None:
         """Lift optimization parameters from `self.vla` for ease of use =>> validate on `expected_world_size`"""
@@ -244,6 +245,8 @@ def train(cfg: TrainConfig) -> None:
         f"# Parameters (in millions): {num_params / 10**6:.3f} Total, {num_trainable_params / 10**6:.3f} Trainable"
     )
 
+    
+    vla.vgm.load_concate_frame = cfg.use_future_frame
     overwatch.info(f"Creating VLA Open-X Dataset with Mixture `{cfg.vla.data_mix}`")
     vla_dataset, _, collator = get_vla_dataset_and_collator(
         cfg.data_root_dir,
@@ -252,7 +255,7 @@ def train(cfg: TrainConfig) -> None:
         tokenizer=None, #TODO
         prompt_builder_fn=None, #TODO
         default_image_resolution=(3,224,224*4), #TODO
-        shuffle_buffer_size=150000,
+        shuffle_buffer_size=250000,
         image_aug=cfg.image_aug,
         load_all_data_for_training=cfg.load_all_data_for_training,
         future_action_window_size=cfg.future_action_window_size,

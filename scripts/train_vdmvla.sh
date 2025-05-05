@@ -1,13 +1,13 @@
-num_cards=6
-bsz_cards=48
+num_cards=8
+bsz_cards=16
 time=$(date +%Y%m%d_%H%M%S)
-run_id=V27_DiTS_freeze_reuseAct_128vgm4f_rt1_${time}
+run_id=V3_rt1_lora_1wrt1+1wrlb${time}
 mkdir ./${run_id}--image_aug
 
 export WANDB_API_KEY="231c840bf4c83c49cc2241bcce066cb7b75967b2"
 export HF_HOME="/aifs4su/mmcode/worldm/.cache/huggingface"
 
-CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/bin/torchrun --standalone --nnodes 1 --nproc-per-node $num_cards scripts/train_vgmvla.py \
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/simpler_env/bin/torchrun --standalone --nnodes 1 --nproc-per-node $num_cards scripts/train_vgmvla.py \
   --vla.type prism-dinosiglip-224px+oxe+diffusion \
   --vla.data_mix fractal20220817_data \
   --vla.expected_world_size $num_cards \
@@ -17,17 +17,18 @@ CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 /aifs4su/mmcode/videogen/anaconda3/envs/simpler
   --run_root_dir "/aifs4su/mmcode/worldm/videoact/VgmACT" \
   --data_root_dir "/aifs4su/mmcode/worldm/open_x_embodiment/fractal20220817_data/" \
   --image_aug True \
-  --save_interval 15000 \
+  --save_interval 5000 \
   --run_id ${run_id} \
   --repeated_diffusion_steps 8 \
   --future_action_window_size 15 \
-  --action_model_type DiT-S \
+  --action_model_type DiT-B \
   --wandb_project "vgmact-rlbench10" \
   --pretrained_checkpoint "/aifs4su/mmcode/worldm/RoboCrafter/save_checkpoints/ww_training_128_4frame_v1.0_rt1_real_4frame/checkpoints/trainstep_checkpoints/epoch=53-step=12000.ckpt"\
   --wandb_entity 'litwellchi' \
   --is_resume False \
-  --vgm_param_mode 'freeze' \
-  --full_ckpt '/aifs4su/mmcode/worldm/videoact/VgmACT/V27_DiTS_freeze_reuseAct_128vgm4f_rt1_20250421_011107--image_aug/checkpoints/step-030000-epoch-2307-loss=0.0017.pt' 
-  # --pretrain_action_model '/aifs4su/mmcode/worldm/videoact/CogACT/CogACT-Small/checkpoints/CogACT-Small.pt'/
+  --vgm_param_mode 'full' \
+  --use_future_frame False \
+  --pretrain_action_model '/aifs4su/mmcode/worldm/videoact/CogACT/CogACT-Base/checkpoints/CogACT-Base.pt'
+  # --full_ckpt '/aifs4su/mmcode/worldm/videoact/VgmACT/V3_DiTB_freeze_fix900_rt1pretrain--image_aug/checkpoints/step-010000-epoch-333-loss=0.0013.pt' 
 
   # &>> ./${run_id}--image_aug/train.log &
