@@ -130,7 +130,7 @@ class VGM(nn.Module):
                  mask_video_prob = 0.2,
                  load_concate_frame=True,
                  use_vgm_prob = 0.95,
-                 video_loss_rate=0.01):
+                 video_loss_rate=1):
         super().__init__()
         from omegaconf import OmegaConf
         import sys 
@@ -281,10 +281,10 @@ class VGM(nn.Module):
 
 
     def update_video_loss(self, train_idx):
+        if train_idx == 1000:
+            self.video_loss_rate == 0.1
         if train_idx == 2000:
-            self.video_loss_rate == 0.0001
-        if train_idx == 4000:
-            self.video_loss_rate = 0
+            self.video_loss_rate = 0.001
         
     def create_time_varying_mask(self, shape, rate=10, device='cuda'):
         # TODO mask 还没加上，不完全是first frame condition
@@ -437,7 +437,7 @@ class VGM(nn.Module):
 
             t_vid_sharp = torch.full(
                 (x_start.shape[0],), 
-                fill_value=1,  # 训练sharp分支，接近最后一步
+                fill_value=10,  # 训练sharp分支，接近最后一步
                 dtype=torch.long, 
                 device=x_start.device
             )
@@ -446,11 +446,11 @@ class VGM(nn.Module):
 
             use_vgm = torch.rand(1).item() < self.use_vgm_prob
             if use_vgm:
-                x0_hat_blur_v = self.vgm.apply_model(x_noisy_blur, t_vid_blur, cond, **kwargs)
-                x0_hat_blur = x0_hat_blur_v
+                x0_hat_blur_v = self.vgm.apply_model(x_noisy_blur, t_vid_blur, cond, **kwargs) # b c t h w
+                x0_hat_blur = x0_hat_blur_v#[:, :, 1:2, :, :].repeat(1, 1, x_start.shape[2], 1, 1)
 
                 x0_hat_sharp_v = self.vgm.apply_model(x_noisy_sharp, t_vid_sharp, cond, **kwargs)
-                x0_hat_sharp = x0_hat_sharp_v.detach().clone()
+                x0_hat_sharp = x0_hat_sharp_v.detach().clone()#[:, :, 1:2, :, :].repeat(1, 1, x_start.shape[2], 1, 1)
             else:
                 x0_hat_blur = x_noisy_blur
                 x0_hat_sharp = x_noisy_sharp
@@ -875,11 +875,11 @@ class VgmACT(nn.Module):
             except:
                 overwatch.warning("No vgm.state_compressor found in the pretrained checkpoint. Initializing a new one.")
 
-            # missing_keys_info = vgmact.vgm.vgm.model.load_state_dict(model_state_dict["vgm.vgm.model"], strict=False)
-            # if not missing_keys_info.missing_keys and not missing_keys_info.unexpected_keys:
-            #     overwatch.info("Loading [bold blue] vgm.model [/] successfully.")
-            # else:
-            #     overwatch.warning(f"Loading vgm.model [bold red] warning: Some missing keys:{missing_keys_info.missing_keys}, or  unexpected keys:{missing_keys_info.unexpected_keys}. [/]")
+            missing_keys_info = vgmact.vgm.vgm.model.load_state_dict(model_state_dict["vgm.vgm.model"], strict=False)
+            if not missing_keys_info.missing_keys and not missing_keys_info.unexpected_keys:
+                overwatch.info("Loading [bold blue] vgm.model [/] successfully.")
+            else:
+                overwatch.warning(f"Loading vgm.model [bold red] warning: Some missing keys:{missing_keys_info.missing_keys}, or  unexpected keys:{missing_keys_info.unexpected_keys}. [/]")
 
         elif pretrain_action_model is not None:
             overwatch.info(f"Using pretrained action model from {pretrain_action_model}")
